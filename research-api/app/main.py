@@ -157,3 +157,9 @@ if _db_url:
 from . import discovery as research_discovery
 
 app.include_router(research_discovery.router)
+
+# SC-FIG-02B: read-only public figures. Off unless a release channel and store are configured;
+# serves only figure revisions already approved at object, article and area level.
+from . import public_figures as research_public_figures
+
+app.include_router(research_public_figures.router)

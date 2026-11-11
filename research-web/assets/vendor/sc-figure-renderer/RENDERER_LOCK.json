@@ -1,0 +1,101 @@
+{
+ "schema": "sc-research-figure-renderer-lock/1.0",
+ "labRepository": "Content-Catalyst-LLC/sustainable-catalyst-lab",
+ "labCommit": "396fbffcc1fc86e8b61512e924bfbf16e1234234",
+ "labRelease": "0.163.1.6",
+ "rendererVersion": "0.1.0",
+ "note": "Byte-identical copies of the Lab Graph Studio renderer; update only with this script.",
+ "files": [
+  {
+   "role": "plotly",
+   "kind": "script",
+   "path": "lib/plotly-3.3.1/plotly.min.js",
+   "labPath": "assets/lib/plotly-3.3.1/plotly.min.js",
+   "sha256": "e2b0f77ee8156ff9d525852fe4acb7bfe7d85e8a2e1da0523f6d16209b848968",
+   "integrity": "sha384-SsOMajmLeeY81sOzGCn88NjTdDwa+nz3Lb1ZNouSdXAz5TBsvD+Pwgf1Iqtxns6c",
+   "bytes": 4838938
+  },
+  {
+   "role": "vega",
+   "kind": "script",
+   "path": "lib/vega-6.4.0/vega.min.js",
+   "labPath": "assets/lib/vega-6.4.0/vega.min.js",
+   "sha256": "8f6a3587cf8d4f42c7e08120e3eb05d067e746d554e39d2dcf52acc0bd5ba28f",
+   "integrity": "sha384-VKdcJr3ZaBIJMbVcopTAI/JEuUkSY6qnwVu9iLuw0DnQ9gQ1JjsfZJhXFQAgNi43",
+   "bytes": 521123
+  },
+  {
+   "role": "vega-lite",
+   "kind": "script",
+   "path": "lib/vega-lite-6.5.0/vega-lite.min.js",
+   "labPath": "assets/lib/vega-lite-6.5.0/vega-lite.min.js",
+   "sha256": "83e215e84e308ee8688fa6503ba0f1cf8a3c05c0d61df2841a0b92bf86809e00",
+   "integrity": "sha384-pV2l7nzmyxZh02knvUH7N8zvtyCYsYiGt+SsE/emG/dFiBI6G0YJZFZ2FzEX72P3",
+   "bytes": 257954
+  },
+  {
+   "role": "vega-interpreter",
+   "kind": "script",
+   "path": "lib/vega-interpreter-2.3.2/vega-interpreter.classic.js",
+   "labPath": "assets/lib/vega-interpreter-2.3.2/vega-interpreter.classic.js",
+   "sha256": "3bba66a9912c02968723f46d4fbf340e32ea752b6ccfdc1a321458ce9ea195d7",
+   "integrity": "sha384-6ubzJVl9QzQeCiCO0ipsYQO8/ECOldDIOuEuvZTo7sQLeoCtTI9wYKIn/uKl420O",
+   "bytes": 9717
+  },
+  {
+   "role": "fig02a-policy",
+   "kind": "script",
+   "path": "js/modules/graph-studio-plotly-preview-fig02a.js",
+   "labPath": "assets/js/modules/graph-studio-plotly-preview-fig02a.js",
+   "sha256": "dbc82fb10cd44a23b23204adea8b0fa87fffa078b94fc856fe9a1604d2adcc33",
+   "integrity": "sha384-LqId1myunfmeRRmA4AlFYje7gGjAuTIijWZMwgmxRJSFxyTE1nW2xn5JwQaSoNjh",
+   "bytes": 17526
+  },
+  {
+   "role": "fig02b-vega-lite",
+   "kind": "script",
+   "path": "js/modules/graph-studio-vega-lite-fig02b.js",
+   "labPath": "assets/js/modules/graph-studio-vega-lite-fig02b.js",
+   "sha256": "443ca0ff1b710c339a2aa8e14b3a2a9b658f85b1ce2ef4b85c1c224132579d2c",
+   "integrity": "sha384-+0s/pYr5IoBilCQSP7uBEbnHBYiPW7qdzHzCYrETUXZE5Ud6E0lYGaiXMzSN6PUa",
+   "bytes": 29801
+  },
+  {
+   "role": "renderer",
+   "kind": "script",
+   "path": "js/modules/graph-studio-figure-bundle-renderer.js",
+   "labPath": "assets/js/modules/graph-studio-figure-bundle-renderer.js",
+   "sha256": "5481d99c14b8e4e3f42c609205e6b4fafe731a61c3e89687daabf71a8513c0f8",
+   "integrity": "sha384-GilFyB8flKtndcKD7WVEG+O/Y11LBJXKarwSBWB8H4bAQfnWTtX8RJGfhm4o8WxL",
+   "bytes": 30335
+  },
+  {
+   "role": "fig02a-style",
+   "kind": "style",
+   "path": "css/sc-lab-graph-studio-plotly-preview-fig02a.css",
+   "labPath": "assets/css/sc-lab-graph-studio-plotly-preview-fig02a.css",
+   "sha256": "2eb7fe5931e53003df1ff8828ef661685503fff52fb8cb977d5e5a498db4d360",
+   "integrity": "sha384-0IwbQHAEX7hGcXAs17mPmMDhOSoiFbCxzMlTH9MoiNRSgGPgmaUm3rJsehLiXTpZ",
+   "bytes": 1618
+  },
+  {
+   "role": "renderer-style",
+   "kind": "style",
+   "path": "css/sc-lab-graph-studio-figure-bundle-renderer.css",
+   "labPath": "assets/css/sc-lab-graph-studio-figure-bundle-renderer.css",
+   "sha256": "2fe9688913b4cdc3c3122215e71d5bf2308692e183e7a6b99eafd8c033874fea",
+   "integrity": "sha384-a/fOdOB3BriA4oc4F7czD6G8xwhcC6AXBLnkHhcj2lfladKzMGxdfQQRQSW4Af/d",
+   "bytes": 1371
+  }
+ ],
+ "licenses": [
+  "lib/plotly-3.3.1/LICENSE.txt",
+  "lib/plotly-3.3.1/SOURCE.json",
+  "lib/vega-6.4.0/LICENSE",
+  "lib/vega-6.4.0/SOURCE.json",
+  "lib/vega-lite-6.5.0/LICENSE",
+  "lib/vega-lite-6.5.0/SOURCE.json",
+  "lib/vega-interpreter-2.3.2/LICENSE",
+  "lib/vega-interpreter-2.3.2/SOURCE.json"
+ ]
+}

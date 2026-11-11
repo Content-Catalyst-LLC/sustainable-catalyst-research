@@ -1,0 +1,104 @@
+{
+ "schema": "sc.figure-bundle.v1",
+ "figureId": "SYN-NB-coefficients",
+ "version": 1,
+ "title": "SYNTHETIC regression coefficients with 95% intervals",
+ "project": {
+  "projectRef": "workspace-project:nb-proj",
+  "ownerScope": "authenticated",
+  "environment": "production"
+ },
+ "publication": {
+  "kind": "none",
+  "target": "unassigned",
+  "bindingStatus": "unbound"
+ },
+ "evidenceClass": "modelled",
+ "figureType": "evidence-chart",
+ "sourceRefs": [
+  {
+   "sourceId": "workspace-dataset:nb-ds-f3851295@r1",
+   "provider": "Sustainable Catalyst Workspace dataset",
+   "identityStatus": "source-hash-verified",
+   "qualityStatus": "pending",
+   "licenceStatus": "pending",
+   "notes": "Licence and quality are not inferred from possession of the dataset.",
+   "sha256": "675f5821cc9647462bb83a1316df99da9e30c5a71579b4c85cc2510f0b63a0a8"
+  }
+ ],
+ "calculationRefs": [
+  {
+   "system": "other",
+   "runRef": "workspace-run:run-248bdd1c-8d13-4c8b-95bd-e4436b0ca461",
+   "method": "Workspace notebook nbx-f3851295 r1 cell fit (sha256 ce6c09bd06d54964e5fabc2dbd5fc04c4ecb0356a5b0f92cf8401d8601def690); r r-statistical-econometric workspace.polyglot.r.linear-model; receipt pgr_287b7151d06b4453b268bc861556f66e",
+   "outputSha256": "e9888bce80f65a93aac8abe32e4bf8b249882d6b1ec7c316db3a5db6ccf870c3",
+   "assumptionRefs": []
+  },
+  {
+   "system": "other",
+   "runRef": "workspace-figure-projection:run-248bdd1c-8d13-4c8b-95bd-e4436b0ca461",
+   "method": "Workspace figure projection: rows from the runtime result.coefficients; fields term, estimate; lower = estimate − 1.959964 × stdError, upper = estimate + 1.959964 × stdError; evidenceClass = modelled",
+   "outputSha256": "e3dab2b4340dc95647bafb9e245f9a978aeac851491495ba5b15c337ffb25745",
+   "assumptionRefs": [
+    "workspace-run:run-248bdd1c-8d13-4c8b-95bd-e4436b0ca461"
+   ]
+  }
+ ],
+ "scientificContext": {
+  "interpretation": "Synthetic regression output used to exercise the notebook figure path.",
+  "limitations": [
+   "Synthetic data with no scientific meaning"
+  ],
+  "measurementStatus": "computed-from-specified-inputs",
+  "units": "1",
+  "uncertaintyNotation": "95% confidence interval from the run result (lower = estimate − 1.959964 × stdError, upper = estimate + 1.959964 × stdError).",
+  "claimIds": [],
+  "doNotInfer": [
+   "measured evidence",
+   "publication approval"
+  ]
+ },
+ "rendering": {
+  "profileId": "sc-institutional-research-v1",
+  "renderer": "vega-lite",
+  "rendererVersion": "vega-lite 6.5.0; vega 6.4.0",
+  "caption": "SYNTHETIC: fitted coefficients of y ~ x with 95% confidence intervals.",
+  "altText": "Two points, intercept 1.5 and slope 0.25, each with a short 95% interval bar.",
+  "palette": "colorblind-safe",
+  "accessibilityReview": "pending",
+  "visualizationSpecSha256": "71f48a6770ee8ecb5b6fd8dda5957cd56c63b46677f980561aee2a3911f85767"
+ },
+ "artifacts": [
+  {
+   "format": "json",
+   "artifactRef": "sc://workspace/figure/SYN-NB-coefficients/71f48a6770ee8ecb5b6fd8dda5957cd56c63b46677f980561aee2a3911f85767.json",
+   "sha256": "71f48a6770ee8ecb5b6fd8dda5957cd56c63b46677f980561aee2a3911f85767",
+   "mediaType": "application/vnd.vegalite.v5+json",
+   "width": 560,
+   "height": 320,
+   "status": "local-review",
+   "revision": 1
+  }
+ ],
+ "provenance": {
+  "authorityOwner": "workspace",
+  "sourceSnapshotIds": [
+   "workspace-dataset:nb-ds-f3851295@r1"
+  ],
+  "generationRunId": "run-248bdd1c-8d13-4c8b-95bd-e4436b0ca461",
+  "generatedAt": "2026-11-11T10:46:38Z",
+  "reproducibility": "not-tested",
+  "lineageRefs": [
+   "workspace-receipt:pgr_287b7151d06b4453b268bc861556f66e",
+   "workspace-notebook-cell:nbx-f3851295@r1#fit"
+  ],
+  "inputManifestSha256": "3f15d60136299d5107511e47d9a0a48ba91bc552c6ff9262ca3e664763f50574"
+ },
+ "review": {
+  "scientific": "pending",
+  "visual": "pending",
+  "rights": "pending",
+  "sourceIntegrity": "pending",
+  "publication": "pending"
+ }
+}

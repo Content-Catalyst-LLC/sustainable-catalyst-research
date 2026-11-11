@@ -1,0 +1,20 @@
+/* SC-FIG-01 / FIG-02A Graph Studio Plotly preview (default off). */
+.sc-lab-fig02a-preview{margin:16px 0;padding:16px;border:1px solid #c9ced6;border-radius:6px;background:#fff;color:#1a1a1a}
+.sc-lab-fig02a-preview h3{margin:0 0 6px;font-size:1rem}
+.sc-lab-fig02a-help{margin:0 0 10px;font-size:.875rem;color:#444}
+.sc-lab-fig02a-card{margin:12px 0 0}
+.sc-lab-fig02a-evidence{display:inline-block;margin:0 0 6px;padding:2px 8px;border:1px solid #1a1a1a;border-radius:3px;font-size:.8125rem;font-weight:600}
+.sc-lab-fig02a-review{margin:0 0 8px;font-size:.8125rem;color:#444}
+.sc-lab-fig02a-plot{width:100%;min-height:420px}
+.sc-lab-fig02a-card figcaption{margin:6px 0;font-size:.875rem}
+.sc-lab-fig02a-data summary{cursor:pointer;font-size:.875rem;font-weight:600}
+.sc-lab-fig02a-tables{overflow-x:auto}
+.sc-lab-fig02a-tables table{border-collapse:collapse;margin:8px 0;font-size:.8125rem}
+.sc-lab-fig02a-tables caption{text-align:left;font-weight:600;padding:4px 0}
+.sc-lab-fig02a-tables th,.sc-lab-fig02a-tables td{border:1px solid #c9ced6;padding:3px 6px;text-align:left;vertical-align:top}
+.sc-lab-fig02a-summary{margin:4px 0 12px;font-size:.8125rem}
+.sc-lab-fig02a-provenance{display:grid;grid-template-columns:max-content 1fr;gap:2px 12px;margin:8px 0 0;font-size:.75rem}
+.sc-lab-fig02a-provenance dt{color:#444}
+.sc-lab-fig02a-provenance dd{margin:0;font-family:ui-monospace,Menlo,monospace;word-break:break-all}
+.sc-lab-fig02a-refusal{margin:10px 0;padding:10px 12px;border:1px solid #a40000;border-radius:4px;background:#fff5f5;color:#5c0000;font-size:.875rem}
+.sc-lab-fig02a-refusal ul{margin:6px 0 0 18px}

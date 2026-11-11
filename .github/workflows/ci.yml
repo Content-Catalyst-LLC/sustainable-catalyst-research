@@ -27,7 +27,9 @@ jobs:
         with:
           node-version: "22"
       - run: node --check research-web/assets/research-workbench-bridge.js
-      - run: node --test tests/test_workbench_bridge.cjs tests/test_research_navigation.cjs
+      - run: node --test tests/test_workbench_bridge.cjs tests/test_research_navigation.cjs tests/test_research_figures.cjs
+      # Public source integrity: manifest, vendored renderer lock, secret scan.
+      - run: python scripts/check_public_source.py
 
   postgres:
     runs-on: ubuntu-latest

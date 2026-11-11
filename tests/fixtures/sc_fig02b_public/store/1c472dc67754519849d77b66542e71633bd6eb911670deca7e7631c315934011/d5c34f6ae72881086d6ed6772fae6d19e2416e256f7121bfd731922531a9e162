@@ -1,0 +1,279 @@
+{
+ "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+ "width": 620,
+ "height": 340,
+ "title": "SYNTHETIC — soil organic carbon scenarios (not real field data)",
+ "data": {
+  "values": [
+   {
+    "year": 0,
+    "soc": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 0,
+    "soc": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 2,
+    "soc": 0.812,
+    "lo": 0.609,
+    "hi": 1.015,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 2,
+    "soc": 0.483,
+    "lo": 0.362,
+    "hi": 0.604,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 4,
+    "soc": 1.568,
+    "lo": 1.176,
+    "hi": 1.96,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 4,
+    "soc": 0.933,
+    "lo": 0.7,
+    "hi": 1.166,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 6,
+    "soc": 2.268,
+    "lo": 1.701,
+    "hi": 2.835,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 6,
+    "soc": 1.35,
+    "lo": 1.013,
+    "hi": 1.688,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 8,
+    "soc": 2.912,
+    "lo": 2.184,
+    "hi": 3.64,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 8,
+    "soc": 1.733,
+    "lo": 1.3,
+    "hi": 2.166,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 10,
+    "soc": 3.5,
+    "lo": 2.625,
+    "hi": 4.375,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 10,
+    "soc": 2.083,
+    "lo": 1.562,
+    "hi": 2.604,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 12,
+    "soc": 4.032,
+    "lo": 3.024,
+    "hi": 5.04,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 12,
+    "soc": 2.4,
+    "lo": 1.8,
+    "hi": 3.0,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 14,
+    "soc": 4.508,
+    "lo": 3.381,
+    "hi": 5.635,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 14,
+    "soc": 2.683,
+    "lo": 2.012,
+    "hi": 3.354,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 16,
+    "soc": 4.928,
+    "lo": 3.696,
+    "hi": 6.16,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 16,
+    "soc": 2.933,
+    "lo": 2.2,
+    "hi": 3.666,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 18,
+    "soc": 5.292,
+    "lo": 3.969,
+    "hi": 6.615,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 18,
+    "soc": 3.15,
+    "lo": 2.362,
+    "hi": 3.938,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 20,
+    "soc": 5.6,
+    "lo": 4.2,
+    "hi": 7.0,
+    "scenario": "cover crops (synthetic)",
+    "evidenceClass": "modelled"
+   },
+   {
+    "year": 20,
+    "soc": 3.333,
+    "lo": 2.5,
+    "hi": 4.166,
+    "scenario": "reduced tillage (synthetic)",
+    "evidenceClass": "modelled"
+   }
+  ]
+ },
+ "layer": [
+  {
+   "mark": {
+    "type": "errorband",
+    "opacity": 0.25
+   },
+   "encoding": {
+    "x": {
+     "field": "year",
+     "type": "quantitative"
+    },
+    "y": {
+     "field": "lo",
+     "type": "quantitative",
+     "title": "Soil organic carbon change (t C ha-1)"
+    },
+    "y2": {
+     "field": "hi"
+    },
+    "color": {
+     "field": "scenario",
+     "type": "nominal"
+    }
+   }
+  },
+  {
+   "mark": {
+    "type": "line",
+    "point": true
+   },
+   "encoding": {
+    "x": {
+     "field": "year",
+     "type": "quantitative"
+    },
+    "y": {
+     "field": "soc",
+     "type": "quantitative"
+    },
+    "color": {
+     "field": "scenario",
+     "type": "nominal"
+    },
+    "strokeDash": {
+     "field": "evidenceClass",
+     "type": "nominal",
+     "legend": {
+      "title": "Evidence class"
+     }
+    }
+   }
+  }
+ ],
+ "usermeta": {
+  "sc": {
+   "profile": "sc-vega-lite-v1",
+   "datasetId": "synthetic:soil-carbon-scenarios-v1",
+   "datasetSha256": "1985568e7a089e94b8f42e3c76bad39ef24a6a369449c7ad7a2dc585080516fe",
+   "evidenceField": "evidenceClass",
+   "fields": {
+    "year": {
+     "label": "Years since practice change",
+     "unit": "years"
+    },
+    "soc": {
+     "label": "Soil organic carbon change",
+     "unit": "t C ha-1"
+    },
+    "lo": {
+     "label": "Lower bound",
+     "unit": "t C ha-1"
+    },
+    "hi": {
+     "label": "Upper bound",
+     "unit": "t C ha-1"
+    },
+    "scenario": {
+     "label": "Scenario",
+     "unit": "category"
+    },
+    "evidenceClass": {
+     "label": "Evidence class",
+     "unit": "category"
+    }
+   },
+   "uncertainty": {
+    "kind": "range",
+    "lowerField": "lo",
+    "upperField": "hi",
+    "statement": "Synthetic ±25% scenario band; not a statistical interval."
+   }
+  }
+ }
+}
