@@ -32,3 +32,5 @@ def test_frontend_has_no_remote_or_eval_paths():
         assert token not in loader
     csp = nginx.split("Content-Security-Policy \"", 1)[1].split("\"", 1)[0]
     assert "script-src 'self';" in csp and "unsafe-eval" not in csp and "object-src 'none'" in csp
+    # The page policy is not stamped onto API responses (figure files carry their own sandbox policy).
+    assert "Content-Security-Policy" not in nginx.split("location /api/research/v1/", 1)[1].split("}", 1)[0]
