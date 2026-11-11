@@ -1,0 +1,44 @@
+# RH-02 isolated Research development stack. Never point this at a production database.
+services:
+  research-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: research_dev
+      POSTGRES_USER: research_dev
+      POSTGRES_PASSWORD: ${RESEARCH_DEV_PASSWORD:?Set a fresh local-only development password}
+    volumes:
+      - research_dev_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U research_dev -d research_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    security_opt:
+      - no-new-privileges:true
+  research-api:
+    build: ../research-api
+    read_only: true
+    depends_on:
+      research-db:
+        condition: service_healthy
+    environment:
+      RESEARCH_ENV: development
+      PYTHONDONTWRITEBYTECODE: "1"
+      RESEARCH_DATABASE_URL: "postgresql+psycopg://research_dev:${RESEARCH_DEV_PASSWORD:?Set a fresh local-only development password}@research-db:5432/research_dev"
+      RESEARCH_DEV_AUTO_CREATE_SCHEMA: "1"
+    ports:
+      - "127.0.0.1:18881:8000"
+    security_opt:
+      - no-new-privileges:true
+  research-web:
+    build: ../research-web
+    depends_on:
+      - research-api
+    ports:
+      - "127.0.0.1:18880:80"
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  research_dev_postgres:
+# Local dev only: isolated Research-owned DB; no Library/Workspace database access.

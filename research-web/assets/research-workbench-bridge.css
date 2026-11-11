@@ -1,0 +1,153 @@
+/* RH-03.3 — WordPress Research Workbench API panel only.
+   All selectors remain local. This deliberately DOES NOT alter the global
+   WordPress header, footer, Astra layout, existing Research rows or site CSS. */
+#sc-research-v2 .scrh-api-panel {
+  margin: 20px 0 0;
+  padding: clamp(16px,2vw,24px);
+  border: 1px solid #d9d2c6;
+  background: #fffdf8;
+  color: #1a1a1a;
+  font: 14px/1.6 Helvetica,Arial,sans-serif;
+}
+#sc-research-v2 .scrh-api-panel h2 {
+  color: #000;
+  font-size: clamp(20px,2.5vw,28px);
+  margin: 0 0 12px;
+  line-height: 1.2;
+}
+#sc-research-v2 .scrh-api-status {
+  margin: 0 0 16px;
+  color: #555;
+  border-left: 3px solid #cc0000;
+  padding: 10px 12px;
+  background: #fdfaf5;
+}
+#sc-research-v2 .scrh-api-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin: 0 0 16px;
+}
+#sc-research-v2 .scrh-api-controls label {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 220px;
+  font-weight: 600;
+}
+#sc-research-v2 .scrh-api-controls input,
+#sc-research-v2 .scrh-api-controls select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #000;
+  border: 1px solid #777;
+  border-radius: 3px;
+  font: inherit;
+}
+#sc-research-v2 .scrh-api-controls input:focus-visible,
+#sc-research-v2 .scrh-api-controls select:focus-visible {
+  outline: 2px solid #ff0000;
+  outline-offset: 2px;
+}
+#sc-research-v2 .scrh-api-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr));
+  gap: 12px;
+}
+#sc-research-v2 .scrh-api-item {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e9e4da;
+  background: #fff;
+}
+#sc-research-v2 .scrh-api-item h3 {
+  font-size: 16px;
+  margin: 0 0 9px;
+}
+#sc-research-v2 .scrh-api-item a {
+  color: #111;
+  text-decoration: underline;
+  text-decoration-color: #cc0000;
+  text-underline-offset: 3px;
+}
+#sc-research-v2 .scrh-api-item p {
+  color: #555;
+  margin: 0 0 10px;
+}
+#sc-research-v2 .scrh-api-item small { color: #666; font-size: 12px; }
+#sc-research-v2 .scrh-api-graph {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fdfaf5;
+  border: 1px solid #eee9df;
+  color: #444;
+}
+#sc-research-v2 .scrh-api-graph ul { padding-left: 20px; }
+#sc-research-v2 .scrh-api-graph li { margin: 4px 0; }
+@media(max-width:650px) {
+  #sc-research-v2 .scrh-api-panel { padding: 14px; }
+  #sc-research-v2 .scrh-api-list { grid-template-columns: 1fr; }
+}
+
+
+/* v0.2.3: only the verified BACKEND card and live connection panel go green.
+   Status classes are applied by JS after all public API responses verify.
+   Unrelated red branding, preview counts and private Workspace messages stay. */
+#sc-research-v2 .scrh-backend-connected::before,
+#sc-research-v2 .scrh-backend-connected-label::before,
+#sc-research-v2 .scrh-backend-connected-label::after,
+#sc-research-v2 .scrh-backend-connected [class*="dot"],
+#sc-research-v2 .scrh-backend-connected [class*="indicator"] {
+  background-color: #16803c !important;
+  border-color: #16803c !important;
+  color: #16803c !important;
+}
+#sc-research-v2 .scrh-backend-connected-value {
+  color: #146c35 !important;
+}
+#sc-research-v2[data-sc-bridge-status="connected"] .scrh-api-status {
+  border-left-color: #16803c;
+}
+
+
+/* Public API health: override the WordPress page's inline RH-03 preview CSS.
+   The hero's red status DOT and red left-edge bars otherwise remain red despite
+   an authenticated, verified public PostgreSQL connection.
+   These rules are deliberately conditional on the JS verification state:
+   failures, disabled flags and offline load retain their original red styling. */
+#sc-research-v2[data-sc-bridge-status="connected"] .scrh-hero .scrh-hero-system-status i {
+  background-color: #16803c !important;
+}
+#sc-research-v2[data-sc-bridge-status="connected"] .scrh-hero .scrh-hero-system,
+#sc-research-v2[data-sc-bridge-status="connected"] .scrh-metric-health {
+  border-left-color: #16803c !important;
+}
+#sc-research-v2[data-sc-bridge-status="connected"] .scrh-metric-health .scrh-small-label {
+  color: #16803c !important;
+}
+
+
+/* 0.2.4: Keyboard-accessible Research preview navigation and local graph.
+   Inherits site palette; only the existing Research page is affected. */
+#sc-research-v2 .scrh-nav-preview-button {
+  border: 1px solid #cbd8d4;
+  background: #fff;
+  color: #234e54;
+  padding: 8px 11px;
+  border-radius: 3px;
+  text-align: left;
+  font-weight: 650;
+  cursor: pointer;
+  margin: 4px;
+}
+#sc-research-v2 .scrh-nav-preview-button:hover { border-color: #287b79; }
+#sc-research-v2 .scrh-nav-preview-button[aria-pressed="true"] {
+  background: #234e54;
+  color: #fff;
+}
+#sc-research-v2 .scrh-nav-selected { outline: 2px solid #287b79; outline-offset: -2px; }
+#sc-research-v2 #scrh-home-articles tr[role="button"] { cursor: pointer; }
+#sc-research-v2 #scrh-graph-list .scrh-nav-preview-button { display: inline-block; }
+#sc-research-v2 [role="tabpanel"] h2:focus { outline: 2px solid #287b79; outline-offset: 5px; }

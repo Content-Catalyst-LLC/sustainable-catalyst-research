@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sustainablecatalyst.com/contracts/research/chart-spec.v1.schema.json",
+  "title": "Provenance-bound Scientific Figure v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "figure_id",
+    "source_id",
+    "input_sha256",
+    "renderer_version",
+    "units",
+    "data_classification",
+    "review_state"
+  ],
+  "properties": {
+    "figure_id": {
+      "type": "string"
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "input_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "renderer_version": {
+      "type": "string"
+    },
+    "units": {
+      "type": "string"
+    },
+    "data_classification": {
+      "enum": [
+        "observed",
+        "modelled",
+        "synthetic",
+        "illustrative"
+      ]
+    },
+    "review_state": {
+      "enum": [
+        "private",
+        "under-review",
+        "approved-public"
+      ]
+    },
+    "limitations": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research — Sustainable Catalyst</title>
+  <meta name="description" content="Living research, connected evidence and evolving knowledge at Sustainable Catalyst.">
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to research</a>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Sustainable Catalyst Research home"><span class="brand-mark">SC</span><span>Sustainable Catalyst<small>Research</small></span></a>
+    <nav aria-label="Research navigation"><a href="#areas">Research areas</a><a href="#articles">Articles</a><a href="/publications/">Publications</a><a href="/knowledge-libraries/">Library</a><a href="/lab/">Lab</a></nav>
+  </header>
+  <main id="main">
+    <section class="hero" id="overview"><p class="eyebrow">Sustainable Catalyst / Living knowledge base</p>
+      <h1>Research</h1>
+      <p class="statement">Investigating the systems that shape a sustainable future.</p>
+      <p class="description">Research areas, developing articles, evidence, scientific methods and visualizations—preserved as a growing, interconnected body of knowledge.</p>
+    </section>
+
+    <nav class="research-modes" aria-label="Research modes">
+      <a href="#overview">Overview</a>
+      <a href="#discover">Discover</a>
+      <a href="#areas">Research areas</a>
+      <a href="#knowledge-graph">Knowledge graph</a>
+      <a href="#research-updates">Research updates</a>
+    </nav>
+    <section class="section discovery" id="discover" aria-labelledby="discover-heading">
+      <p class="eyebrow">Scientific source discovery</p>
+      <h2 id="discover-heading">Discover related knowledge</h2>
+      <p class="discovery-intro">Investigate new literature and evidence, compare source metadata, and bring reviewed findings into an evolving Research workspace. Search results are candidates—not verified scientific claims.</p>
+      <p class="discovery-context" id="discovery-context" hidden></p>
+      <form id="discovery-form" class="discovery-form" role="search">
+        <label class="discovery-query">Research question or topic
+          <input id="discovery-query" name="q" type="search" minlength="3" maxlength="240" required autocomplete="off" placeholder="e.g. enhanced rock weathering agricultural soils">
+        </label>
+        <label>Source
+          <select id="discovery-provider" name="provider">
+            <option value="all">All scholarly sources</option>
+            <option value="openalex">OpenAlex</option>
+            <option value="crossref">Crossref</option>
+          </select>
+        </label>
+        <label>Publication year
+          <input id="discovery-year" type="number" min="1600" max="2100" placeholder="Any year" name="year">
+        </label>
+        <button type="submit">Discover research</button>
+      </form>
+      <p class="discovery-notice" id="discovery-state" role="status" aria-live="polite">Checking scholarly source availability…</p>
+      <div id="discovery-results" class="discovery-results" aria-live="polite">
+        <p class="empty">Verified-source search will appear here when provider adapters are activated.</p>
+      </div>
+      <p class="discovery-footnote">Research Discovery is developed without a paid AI subscription. A discovered source does not become accepted evidence until independently reviewed.</p>
+    </section>
+    <section class="section" id="areas"><p class="eyebrow">Discover</p><h2>Research areas</h2>
+      <div id="areas-list" class="cards" aria-live="polite"><p class="empty">Loading public research areas…</p></div>
+    </section>
+    <section class="section" id="articles"><p class="eyebrow">Research index</p><h2>Articles and investigations</h2>
+      <form id="search-form" class="filters" role="search">
+        <label>Search research<input id="query" name="q" type="search" placeholder="Search titles and summaries"></label>
+        <label>Research area<select id="area-filter" name="area"><option value="">All areas</option></select></label>
+        <button type="submit">Search</button>
+      </form>
+      <div id="article-list" class="cards" aria-live="polite"><p class="empty">Loading public research records…</p></div>
+    </section>
+
+    <section class="section research-relations" id="knowledge-graph" aria-labelledby="knowledge-graph-heading">
+      <p class="eyebrow">Connected knowledge</p><h2 id="knowledge-graph-heading">Research knowledge graph</h2>
+      <p>Connect research areas, individual articles, source records, datasets, figures and the questions they address. Visual and accessible list-based exploration will use approved provenance-linked records.</p>
+      <p class="discovery-notice">Current view: approved research-area and article structure. Metadata-derived connections will appear only after review; links do not establish causation.</p>
+      <div class="knowledge-graph-shell" aria-label="Approved research relationships">
+        <div id="knowledge-graph-visual" class="knowledge-graph-visual" aria-hidden="true"></div>
+        <div id="knowledge-graph-list" class="knowledge-graph-list" aria-live="polite"><p class="empty">Loading approved research relationships…</p></div>
+      </div>
+    </section>
+    <section class="section research-updates" id="research-updates" aria-labelledby="research-updates-heading">
+      <p class="eyebrow">Continuing research</p><h2 id="research-updates-heading">Research updates</h2>
+      <p>Approved revisions, additional evidence, new analyses and related investigations will appear here as research develops. Existing released versions remain preserved.</p>
+      <p class="discovery-notice">No public update feed has been activated.</p>
+    </section>
+    <section class="section methodology"><p class="eyebrow">Research standards</p><h2>Preserving the evidence trail</h2>
+      <p>Sources, methods, calculations, figures, uncertainties and revisions remain linked to the research they support. Unapproved work and restricted source records stay private.</p>
+    </section>
+    <section class="section research-workspace" id="workspace-view" hidden aria-labelledby="workspace-title">
+      <a class="workspace-back" href="/">← All research</a>
+      <p class="eyebrow">Living research / Article workspace</p>
+      <h1 id="workspace-title">Research workspace</h1>
+      <p class="workspace-summary" id="workspace-summary">Loading approved research content…</p>
+      <div id="workspace-state" class="workspace-status" aria-live="polite"></div>
+      <a class="workspace-discover-action" id="workspace-discover-link" href="#discover" hidden>Discover related evidence →</a>
+      <nav aria-label="Article workspace views" class="workspace-nav">
+        <a href="#workspace-overview">Overview</a>
+        <a href="#workspace-evidence">Evidence</a>
+        <a href="#workspace-figures">Data &amp; figures</a>
+        <a href="#workspace-methods">Methods</a>
+        <a href="#workspace-updates">Updates</a>
+        <a href="#workspace-related">Related work</a>
+      </nav>
+      <div id="workspace-content" class="workspace-content"></div>
+    </section>
+  </main>
+  <footer>Independent Research application — foundation preview. Not the production Research Hub.</footer>
+  <script src="/assets/app.js" defer></script>
+</body></html>

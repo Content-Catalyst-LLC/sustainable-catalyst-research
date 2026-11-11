@@ -1,0 +1,82 @@
+name: RH-PROD-06 WordPress Research Bridge package
+
+on:
+  push:
+    branches: [feature/research-wordpress-website]
+    paths:
+      - "wordpress/sc-research-bridge/**"
+      - "research-web/assets/research-workbench-bridge.js"
+      - "research-web/assets/research-workbench-bridge.css"
+      - "research-web/assets/research-navigation.js"
+      - "tests/test_research_navigation.cjs"
+      - "scripts/build_wordpress_bridge.py"
+      - "tests/test_rhprod06_wordpress_package.py"
+      - "tests/php/**"
+      - "tests/test_workbench_bridge.cjs"
+      - ".github/workflows/rhprod06-wordpress-plugin.yml"
+  pull_request:
+    paths:
+      - "wordpress/sc-research-bridge/**"
+      - "research-web/assets/research-workbench-bridge.js"
+      - "research-web/assets/research-workbench-bridge.css"
+      - "research-web/assets/research-navigation.js"
+      - "tests/test_research_navigation.cjs"
+      - "scripts/build_wordpress_bridge.py"
+      - "tests/test_rhprod06_wordpress_package.py"
+      - "tests/php/**"
+      - "tests/test_workbench_bridge.cjs"
+      - ".github/workflows/rhprod06-wordpress-plugin.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: validate-and-package-wordpress-bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: PHP syntax and plugin header
+        run: |
+          command -v php
+          php -l wordpress/sc-research-bridge/sc-research-bridge.php
+          php -l tests/php/test_research_bridge_runtime.php
+          php tests/php/test_research_bridge_runtime.php
+          grep -F 'Plugin Name: Sustainable Catalyst Research Bridge' wordpress/sc-research-bridge/sc-research-bridge.php
+      - name: Test package invariants
+        run: |
+          python -m pip install 'pytest>=8,<10'
+          python -m pytest -q tests/test_rhprod06_wordpress_package.py
+      - name: Validate browser adapter
+        run: |
+          node --check research-web/assets/research-workbench-bridge.js
+          node --test tests/test_workbench_bridge.cjs
+          node --check research-web/assets/research-navigation.js
+          node --test tests/test_research_navigation.cjs
+      - name: Assemble installable WordPress plugin ZIP
+        run: |
+          python scripts/build_wordpress_bridge.py --output "$PWD/dist/sc-research-bridge.zip"
+          sha256sum dist/sc-research-bridge.zip
+          unzip -t dist/sc-research-bridge.zip
+      - name: Publish candidate package as CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-prod-06-wordpress-bridge-candidate
+          path: dist/sc-research-bridge.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Record safety and next gate
+        run: |
+          echo '### RH-PROD-06 WordPress bridge' >> "$GITHUB_STEP_SUMMARY"
+          echo 'WordPress ZIP built and tested from the current commit.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Plugin is **disabled by default**; public read-only API routes only.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Workspace SSO remains on the existing Workspace HTTPS origin; WordPress never authenticates private research users.' >> "$GITHUB_STEP_SUMMARY"
+          echo '**NOT INSTALLED, NOT ACTIVATED, NO CONTABO CUTOVER, NO LIVE BACKEND PROOF.**' >> "$GITHUB_STEP_SUMMARY"

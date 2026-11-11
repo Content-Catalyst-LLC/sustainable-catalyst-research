@@ -1,0 +1,21 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+node_modules/
+dist/
+coverage/
+*.sqlite3
+*.db
+
+infrastructure/secrets/
+infrastructure/.env
+backups/
+
+# RH-PROD-02 production secrets and runtime state must never enter Git.
+infrastructure/production-secrets/
+infrastructure/production-runtime/
+production-backups/

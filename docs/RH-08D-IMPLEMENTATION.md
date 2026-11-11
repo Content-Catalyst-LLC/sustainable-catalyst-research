@@ -1,0 +1,51 @@
+# RH-08D — Integrated Research Discovery: implementation register
+
+**Date:** 2026-11-05 · **Status:** Implementation sequencing agreed, review-stage.  
+**Product:** Sustainable Catalyst Research · **Primary source:** [RH-02 build map](../BUILD_MAP.md)  
+**Canonical directive:** [RH-08D specification](https://github.com/Content-Catalyst-LLC/documentation/blob/feature/rh-02-research-platform-build-map/docs/research/RH-08D-DISCOVERY-ENGINE.md)
+
+## Scope
+
+Research is a dynamic public knowledge base, composed of research areas, projects and individually persistent article workspaces. Discovery integrates in the Research main page and in every article. It does not replace Library, require Perplexity, or expose owner-private manuscripts. Research owns query/run/candidate state and article links; Library retains authority over source/citation identity, provenance, rights and reviewed evidence.
+
+A source found by search is a **discovery candidate**, not automatically verified evidence, peer-reviewed work or a citable source passage. Public results may include only provider-supplied metadata and approved Research article context. Do not send private Research/Workspace material to third-party APIs without explicit authorization.
+
+## Delivery map
+
+| Build | User-facing result | Implementation gate | Status |
+|---|---|---|---|
+| RH-08D-00 | Reconciled specifications across Documentation, Data, Handoffs and Research | Cross-repo review and owner approval for merge | Draft plans reconciled, unmerged |
+| RH-08D-01 | Discover main section + “Discover related evidence” in each article; accessible search, filters, loading/error/empty states | Existing research-web shell; public-only context; versioned API schema | **Next executable build** |
+| RH-08D-02 | OpenAlex/Crossref scholarly metadata results with source identifiers, URLs, retrieval timestamps and provider labels | Provider policy, safe outbound HTTP, rate caps, timeouts; no private context | Planned, read-only allowed |
+| RH-08D-03 | DOI normalization, stable-ID deduplication, metadata conflict and retraction states | Actual candidate sources and negative metadata tests | Planned |
+| RH-08D-04 | Reopenable owner-scoped discovery sessions; per-article candidate review queue; Library source-review handoff | RH-02 PostgreSQL migration, certified authentication/CSRF/owner isolation, RH-07 Library adapter | **Blocked until persistence/identity gates** |
+| RH-08D-05 | Reviewed evidence attached to the article/knowledge graph; proposed new research revision | Library accepted evidence, explicit editorial review, RH-05/08 relationship model | Planned |
+| RH-08D-06 | Optional source-passage-grounded synthesis | Rights-cleared retrieved passages, per-claim source anchors, model opt-in and budgets | Disabled |
+| RH-08D-07 | Europe PMC, arXiv, permitted government datasets/web discovery | Provider-specific policy, rights, quotas, SSRF testing | Disabled |
+| RH-08D-08 | Scheduled search monitoring, notifications and operations | Owner opt-in, rights, RH-12 staging backup/rollback/production acceptance | Disabled |
+
+## Workspace integration
+
+- Domain relationship: `ResearchArea → ResearchProject → ResearchEntry → EntryWorkspace` (RH-02) and `EntryWorkspace → DiscoveryRun → DiscoveryCandidate` (future RH-08D-04).
+- Every finished research project output remains an independently expandable research entry and stable logical workspace. No Docker service per paper.
+- Article page Discover may prefill only public-approved research question/topics for an anonymous visitor; editor-specific private context requires a verified same-origin authenticated session.
+- Persist discovery candidates **only** under an owner-authorized EntryWorkspace. Never bind by title string; never expose Workspace IDs through public JSON.
+- Accept source metadata only through a typed, explicitly approved Library handoff. Do not copy or mutate Library's database.
+- New evidence proposes a versioned update; previously released publications remain immutable.
+
+## First acceptance demonstration
+
+A visitor opens Research → Discover, searches “enhanced rock weathering agricultural soils,” sees genuine metadata from OpenAlex and Crossref with clear “discovered/unreviewed” labeling, filters by provider/year, inspects a DOI and provenance, and navigates to a related approved article. An owner can later save a candidate in the article workspace only after authorization, persistence and Library review gates pass. Repeat the journey with a sustainable development indicators topic; test anonymous privacy and source provider failures. Never fabricate results, authors, identifiers or datasets to fill the UI.
+
+## Reconciliation and branch strategy
+
+- Documentation: [Draft PR #14](https://github.com/Content-Catalyst-LLC/documentation/pull/14)
+- Data: [Draft PR #3](https://github.com/Content-Catalyst-LLC/data/pull/3); all six provider flags disabled, no retrieved candidates
+- Handoffs: [Draft PR #3](https://github.com/Content-Catalyst-LLC/handoffs/pull/3)
+- Research: [Foundation PR #1](https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research/pull/1); [per-entry workspace PR #2](https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research/pull/2)
+
+Implement RH-08D-01 on a *new branch based on* `feature/rh-02-entry-workspaces` so that Discover is correctly aware of the per-entry workspace implementation. The older `feature/rh-08d-discovery-foundation` was cut from foundation and should not be assumed to include RH-02 work; do not blind-merge.
+
+## Operational rules
+
+GitHub source/CI development proceeds without routine SSH or Codex. Pi or container integration requires a controlled staging runner or owner-authorized deployment automation. No production WordPress edits, paid provider activation, article publishing, data imports or assertions of scientifically verified discoveries are authorized by this document.
