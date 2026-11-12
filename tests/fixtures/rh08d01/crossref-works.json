@@ -1,0 +1,204 @@
+{
+ "status": "ok",
+ "message-type": "work-list",
+ "message-version": "1.0.0",
+ "message": {
+  "total-results": 7,
+  "note": "SYNTHETIC fixture, not Crossref data",
+  "items": [
+   {
+    "DOI": "10.5555/SC-SYN-002",
+    "title": [
+     "SYNTHETIC carbon accounting for mineral amendments!"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2022,
+       1,
+       1
+      ]
+     ]
+    },
+    "author": [
+     {
+      "given": "C.",
+      "family": "Example",
+      "ORCID": "http://orcid.org/0000-0002-1825-0097"
+     }
+    ],
+    "container-title": [
+     "Synthetic Review Letters"
+    ],
+    "type": "journal-article",
+    "URL": "https://doi.org/10.5555/SC-SYN-002"
+   },
+   {
+    "DOI": "10.5555/sc-syn-010",
+    "title": [
+     "SYNTHETIC Retracted soil study"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2020,
+       1,
+       1
+      ]
+     ]
+    },
+    "author": [
+     {
+      "given": "H.",
+      "family": "Notreal"
+     }
+    ],
+    "container-title": [
+     "Synthetic Review Letters"
+    ],
+    "type": "journal-article",
+    "URL": "https://doi.org/10.5555/sc-syn-010",
+    "updated-by": [
+     {
+      "type": "retraction",
+      "DOI": "10.5555/sc-syn-011"
+     }
+    ]
+   },
+   {
+    "DOI": "10.5555/sc-syn-011",
+    "title": [
+     "Retraction notice: SYNTHETIC Retracted soil study"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2021,
+       1,
+       1
+      ]
+     ]
+    },
+    "author": [
+     {
+      "given": "J.",
+      "family": "Editor"
+     }
+    ],
+    "container-title": [
+     "Synthetic Review Letters"
+    ],
+    "type": "journal-article",
+    "URL": "https://doi.org/10.5555/sc-syn-011",
+    "update-to": [
+     {
+      "type": "retraction",
+      "DOI": "10.5555/sc-syn-010"
+     }
+    ]
+   },
+   {
+    "DOI": null,
+    "title": [
+     "SYNTHETIC record without a DOI"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2020,
+       1,
+       1
+      ]
+     ]
+    },
+    "author": [
+     {
+      "given": "K.",
+      "family": "Nobody"
+     }
+    ],
+    "container-title": [
+     "Synthetic Review Letters"
+    ],
+    "type": "journal-article",
+    "URL": null
+   },
+   {
+    "DOI": "10.5555/sc-syn-012",
+    "title": [],
+    "issued": {
+     "date-parts": [
+      [
+       2020,
+       1,
+       1
+      ]
+     ]
+    },
+    "author": [
+     {
+      "given": "L.",
+      "family": "Untitled"
+     }
+    ],
+    "container-title": [
+     "Synthetic Review Letters"
+    ],
+    "type": "journal-article",
+    "URL": "https://doi.org/10.5555/sc-syn-012"
+   },
+   {
+    "DOI": "10.5555/sc-syn-013",
+    "title": [
+     "SYNTHETIC Preprint and article pair"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2024,
+       1,
+       1
+      ]
+     ]
+    },
+    "author": [
+     {
+      "given": "D.",
+      "family": "Sample"
+     }
+    ],
+    "container-title": [
+     "Synthetic Review Letters"
+    ],
+    "type": "posted-content",
+    "URL": "https://doi.org/10.5555/sc-syn-013"
+   },
+   {
+    "DOI": "10.5555/sc-syn-014",
+    "title": [
+     "SYNTHETIC Preprint and article pair"
+    ],
+    "issued": {
+     "date-parts": [
+      [
+       2024,
+       1,
+       1
+      ]
+     ]
+    },
+    "author": [
+     {
+      "given": "D.",
+      "family": "Sample"
+     }
+    ],
+    "container-title": [
+     "Synthetic Review Letters"
+    ],
+    "type": "journal-article",
+    "URL": "https://doi.org/10.5555/sc-syn-014"
+   }
+  ]
+ }
+}

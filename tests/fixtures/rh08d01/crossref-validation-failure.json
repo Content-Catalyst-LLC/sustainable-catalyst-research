@@ -1,0 +1,10 @@
+{
+ "status": "failed",
+ "message-type": "validation-failure",
+ "message": [
+  {
+   "type": "parameter-not-allowed",
+   "message": "SYNTHETIC failure"
+  }
+ ]
+}

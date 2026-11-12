@@ -24,6 +24,8 @@ A source found by search is a **discovery candidate**, not automatically verifie
 | RH-08D-07 | Europe PMC, arXiv, permitted government datasets/web discovery | Provider-specific policy, rights, quotas, SSRF testing | Disabled |
 | RH-08D-08 | Scheduled search monitoring, notifications and operations | Owner opt-in, rights, RH-12 staging backup/rollback/production acceptance | Disabled |
 
+**2026-11-12 note:** the owner directive of this date assigned the label RH-08D-01 to the typed OpenAlex/Crossref adapter layer, i.e. the network-free part of RH-08D-02 and RH-08D-03 above; see [RH-08D-01 discovery adapters](RH-08D-01-DISCOVERY-ADAPTERS.md). The Discover interface follows it.
+
 ## Workspace integration
 
 - Domain relationship: `ResearchArea → ResearchProject → ResearchEntry → EntryWorkspace` (RH-02) and `EntryWorkspace → DiscoveryRun → DiscoveryCandidate` (future RH-08D-04).
