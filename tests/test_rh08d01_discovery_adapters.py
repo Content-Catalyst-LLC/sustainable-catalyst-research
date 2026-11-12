@@ -130,10 +130,12 @@ def test_unknown_providers_and_bad_queries_are_refused():
         da.discover("ab")
 
 
-def test_the_package_has_no_network_transport():
-    source = "\n".join(p.read_text() for p in (ROOT / "research-api/app/discovery_adapters").glob("*.py"))
+def test_only_the_prepared_https_module_has_network_code():
+    # RH-08D-02 adds https_transport; no other adapter module may touch the network or import it.
+    package = ROOT / "research-api/app/discovery_adapters"
+    source = "\n".join(p.read_text() for p in package.glob("*.py") if p.name != "https_transport.py")
     for forbidden in ("import urllib.request", "urlopen", "import requests", "import httpx", "http.client",
-                      "socket.", "aiohttp"):
+                      "socket.", "aiohttp", "from .https_transport", "import https_transport"):
         assert forbidden not in source, forbidden
 
 

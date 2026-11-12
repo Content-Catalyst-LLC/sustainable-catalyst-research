@@ -298,7 +298,9 @@ async function runDiscovery(event) {
     }
     if (!response.ok) throw Error("Discovery service error");
     const data = await response.json();
-    renderDiscoveryCandidates(data.candidates || []);
+    // RH-08D-02: a typed discovery run renders through research-discovery.js (sources, provenance, duplicates).
+    if (data && data.run && window.SCResearchDiscovery) window.SCResearchDiscovery.renderSearch(get("discovery-results"), data, document);
+    else renderDiscoveryCandidates(data.candidates || []);
     discoveryMessage("Search returned bibliographic candidates only. Verify source identity, rights, and evidence before using results.");
   } catch (_) {
     renderDiscoveryCandidates([]);

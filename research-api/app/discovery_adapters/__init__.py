@@ -1,10 +1,11 @@
 """RH-08D-01 scholarly discovery adapters: OpenAlex and Crossref, offline and disabled by default.
 
 The package builds provider requests and turns provider responses into typed, unreviewed discovery
-candidates. It contains **no network transport**: a run needs a transport passed in by the caller, and the
-only transports here are ``DisabledTransport`` (the default, which refuses) and ``FixtureTransport`` (for
-synthetic offline tests). Enabling live provider calls, persisting candidates or publishing anything is a
-separate, owner-authorised change.
+candidates. A run needs a transport passed in by the caller: ``DisabledTransport`` (the default, which
+refuses) or ``FixtureTransport`` (for synthetic offline tests). The vetted live transport (RH-08D-02) lives
+only in ``https_transport``, which this package never imports; ``app.discovery`` would use it only once live
+calls are authorised. Enabling live provider calls, persisting candidates or publishing anything is a
+separate, owner-authorised change. ``library_intake`` drafts Library review proposals; submission is disabled.
 
 A candidate is never evidence. It carries provider metadata only (no abstracts or full text), its
 provenance, ``classification = "discovered-unreviewed"`` and ``publishable = False``.
