@@ -8,7 +8,7 @@ Application code is developed in GitHub and public-safe source status is maintai
 ## Isolated local/Pi build
 
 ```bash
-git clone <PUBLIC_REPOSITORY_CLONE_URL>
+git clone https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research.git
 cd sustainable-catalyst-research
 cp infrastructure/dev.env.example infrastructure/.env
 # Set RESEARCH_DEV_PASSWORD in infrastructure/.env to a freshly generated value.
