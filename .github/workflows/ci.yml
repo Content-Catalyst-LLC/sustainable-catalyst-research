@@ -27,13 +27,20 @@ jobs:
         with:
           node-version: "22"
       - run: node --check research-web/assets/research-workbench-bridge.js
-      - run: node --test tests/test_workbench_bridge.cjs tests/test_research_navigation.cjs
+      - run: node --test tests/*.cjs
+      - name: WordPress bridge PHP tests (PHP preinstalled on the runner image)
+        run: |
+          php --version | head -1
+          for t in tests/php/*.php; do php "$t"; done
+      - name: Public source scan (allowlist, private-name and credential rules, SOURCE_MANIFEST)
+        run: python scripts/check_public_source.py
 
   postgres:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # Same pinned image digest as the production Compose file, so migrations are tested on identical PostgreSQL.
+        image: postgres:16-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
         env:
           POSTGRES_DB: research_staging
           POSTGRES_USER: research_staging

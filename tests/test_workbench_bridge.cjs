@@ -12,10 +12,10 @@ const css = fs.readFileSync(
 
 test("validates public article slugs and bounded display metadata", () => {
   const row = bridge.normalizeArticle({
-    slug: "wexford-rock-weathering", title: "Paper", summary: "Reviewed summary",
+    slug: "example-site-rock-weathering", title: "Paper", summary: "Reviewed summary",
     area_slug: "climate-and-land", state: "published", version: "v1"
   });
-  assert.equal(row.slug, "wexford-rock-weathering");
+  assert.equal(row.slug, "example-site-rock-weathering");
   assert.equal(row.title, "Paper");
   assert.equal(bridge.normalizeArticle({slug: "../../owner-manuscript", title: "Private"}), null);
   assert.equal(bridge.normalizeArticle({slug: "NOT-LOWERCASE", title: "Unknown"}), null);
@@ -103,14 +103,14 @@ test("RH-PROD-06 demands PostgreSQL-backed status before marking WordPress conne
 
 test("public catalog search filters reviewed records locally without network access", () => {
   const articles = [
-    {title: "Wexford weathering", summary: "Basalt measurements", area: "climate"},
+    {title: "Example weathering", summary: "Basalt measurements", area: "climate"},
     {title: "SDG metrics", summary: "Indicator analysis", area: "economics"},
   ];
   const objects = [
-    {title: "Sentinel dataset", summary: "Geospatial Wexford", authority: "site-intelligence"},
+    {title: "Sentinel dataset", summary: "Geospatial Example", authority: "site-intelligence"},
     {title: "Evidence collection", summary: "Bibliography", authority: "library"},
   ];
-  const query = bridge.filterApprovedItems(articles, objects, "wexford", "all");
+  const query = bridge.filterApprovedItems(articles, objects, "example", "all");
   assert.equal(query.articles.length, 1);
   assert.equal(query.objects.length, 1);
   const articleOnly = bridge.filterApprovedItems(articles, objects, "", "articles");
@@ -135,7 +135,7 @@ test("verified PostgreSQL status replaces only obsolete preview badge text", () 
   const makeNode = (value) => ({nodeValue: value});
   const original = [
     makeNode("Not connected"),
-    makeNode("Contabo integration pending"),
+    makeNode("Host integration pending"),
     makeNode("6 Research records"),
     makeNode("Protected project editing is not enabled in this preview")
   ];
@@ -189,7 +189,7 @@ test("verified public backend turns only its connection indicator green", () => 
   const nodes = [
     {nodeValue: "BACKEND", parentElement: label},
     {nodeValue: "Not connected", parentElement: value},
-    {nodeValue: "Contabo integration pending", parentElement: details}
+    {nodeValue: "Host integration pending", parentElement: details}
   ];
   let index = 0;
   global.NodeFilter = {SHOW_TEXT: 4};

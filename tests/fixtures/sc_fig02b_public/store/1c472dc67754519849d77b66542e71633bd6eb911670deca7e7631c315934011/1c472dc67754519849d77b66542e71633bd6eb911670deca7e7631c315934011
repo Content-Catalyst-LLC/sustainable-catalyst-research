@@ -1,0 +1,105 @@
+{
+ "schema": "sc.figure-bundle.v1",
+ "figureId": "SYN-PUB-soil-carbon",
+ "version": 1,
+ "title": "SYNTHETIC soil organic carbon scenarios with a scenario band",
+ "project": {
+  "projectRef": "research-entry:synthetic-soil-carbon-scenarios",
+  "ownerScope": "isolated-synthetic",
+  "environment": "staging"
+ },
+ "publication": {
+  "kind": "technical-supplement",
+  "target": "research-entry:synthetic-soil-carbon-scenarios",
+  "bindingStatus": "synthetic-test"
+ },
+ "evidenceClass": "modelled",
+ "figureType": "evidence-chart",
+ "sourceRefs": [
+  {
+   "sourceId": "synthetic:soil-carbon-parameters-v1",
+   "provider": "Sustainable Catalyst synthetic fixture",
+   "identityStatus": "source-hash-verified",
+   "qualityStatus": "not-applicable",
+   "licenceStatus": "verified-for-use",
+   "sha256": "01110946da810677ff67221348964547e22e19316d4be3aff708ae63faf37cd9"
+  },
+  {
+   "sourceId": "synthetic:placeholder-citation",
+   "provider": "Placeholder standing in for a published study",
+   "citationId": "SYNTHETIC-CITATION-1",
+   "doi": "10.0000/synthetic.0001",
+   "identityStatus": "source-identified",
+   "qualityStatus": "pending",
+   "licenceStatus": "pending"
+  }
+ ],
+ "calculationRefs": [
+  {
+   "system": "other",
+   "runRef": "synthetic-run:soil-carbon-scenarios-v1",
+   "method": "synthetic saturating accumulation, two practice scenarios",
+   "outputSha256": "1985568e7a089e94b8f42e3c76bad39ef24a6a369449c7ad7a2dc585080516fe",
+   "assumptionRefs": [
+    "synthetic:soil-carbon-parameters-v1"
+   ]
+  }
+ ],
+ "scientificContext": {
+  "interpretation": "Synthetic modelled scenario lines used to exercise public Research figures.",
+  "limitations": [
+   "Synthetic values with no scientific meaning",
+   "Not field measurements; no carbon sequestration is measured or certified"
+  ],
+  "units": "t C ha-1",
+  "uncertaintyNotation": "Synthetic ±25% scenario band (lower and upper bound fields).",
+  "claimIds": [],
+  "doNotInfer": [
+   "any scientific conclusion",
+   "measured soil carbon change"
+  ],
+  "measurementStatus": "computed-from-specified-inputs"
+ },
+ "rendering": {
+  "profileId": "sc-institutional-research-v1",
+  "palette": "colorblind-safe",
+  "accessibilityReview": "passed",
+  "visualizationSpecSha256": "d5c34f6ae72881086d6ed6772fae6d19e2416e256f7121bfd731922531a9e162",
+  "renderer": "vega-lite",
+  "rendererVersion": "vega-lite 6.5.0; vega 6.4.0",
+  "caption": "SYNTHETIC: modelled soil organic carbon change under two practice scenarios, with a ±25% band.",
+  "altText": "Two rising synthetic scenario lines over 20 years with shaded bands; cover crops rise faster than reduced tillage."
+ },
+ "artifacts": [
+  {
+   "format": "json",
+   "artifactRef": "sc://workspace/figure/SYN-PUB-soil-carbon/d5c34f6ae72881086d6ed6772fae6d19e2416e256f7121bfd731922531a9e162.json",
+   "sha256": "d5c34f6ae72881086d6ed6772fae6d19e2416e256f7121bfd731922531a9e162",
+   "mediaType": "application/vnd.vegalite.v5+json",
+   "width": 620,
+   "height": 340,
+   "status": "staging-verified",
+   "revision": 1
+  }
+ ],
+ "provenance": {
+  "authorityOwner": "workspace",
+  "sourceSnapshotIds": [
+   "synthetic:soil-carbon-parameters-v1",
+   "synthetic:placeholder-citation"
+  ],
+  "generationRunId": "synthetic-run:d5c34f6ae72881086d6ed677",
+  "generatedAt": "2026-11-11T00:00:00Z",
+  "reproducibility": "synthetic-fixture-tested"
+ },
+ "review": {
+  "scientific": "approved",
+  "visual": "approved",
+  "rights": "approved",
+  "sourceIntegrity": "approved",
+  "publication": "approved",
+  "reviewerId": "synthetic-reviewer",
+  "reviewedAt": "2026-11-11T00:00:00Z",
+  "notes": "Synthetic staging review record; no real review took place."
+ }
+}

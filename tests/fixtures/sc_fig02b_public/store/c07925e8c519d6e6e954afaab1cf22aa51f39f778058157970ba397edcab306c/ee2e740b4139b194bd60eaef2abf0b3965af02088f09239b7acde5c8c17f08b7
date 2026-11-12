@@ -1,0 +1,65 @@
+{
+ "data": [
+  {
+   "type": "scatter",
+   "mode": "markers",
+   "x": [
+    "Plot A (synthetic)",
+    "Plot B (synthetic)",
+    "Plot C (synthetic)",
+    "Plot D (synthetic)"
+   ],
+   "y": [
+    1.8,
+    2.4,
+    null,
+    3.1
+   ],
+   "name": "Hypothetical plot mean",
+   "error_y": {
+    "type": "data",
+    "array": [
+     0.4,
+     0.5,
+     null,
+     0.6
+    ],
+    "visible": true,
+    "color": "#0072B2",
+    "thickness": 1.5,
+    "width": 6
+   },
+   "marker": {
+    "color": "#0072B2",
+    "size": 9,
+    "symbol": "circle"
+   },
+   "hovertemplate": "%{x}: %{y} t C ha-1<extra></extra>"
+  }
+ ],
+ "layout": {
+  "title": {
+   "text": "SYNTHETIC — hypothetical plot means with reported ± (Plot C not reported)"
+  },
+  "xaxis": {
+   "title": {
+    "text": "Plot"
+   }
+  },
+  "yaxis": {
+   "title": {
+    "text": "Soil organic carbon stock change (t C ha-1)"
+   }
+  },
+  "width": 620,
+  "height": 340,
+  "showlegend": false,
+  "font": {
+   "family": "system-ui, sans-serif"
+  }
+ },
+ "config": {
+  "displaylogo": false,
+  "responsive": true
+ }
+}

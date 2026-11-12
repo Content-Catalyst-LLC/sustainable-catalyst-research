@@ -16,4 +16,4 @@ Research area → project → article → immutable released version. New analys
 
 ## Current delivery limits
 
-This is a read-only development foundation. Protected editing, persistent PostgreSQL state, real research migration, figure renderers, cross-system adapters, Contabo deployment and browser acceptance have not yet been implemented.
+This is a read-only development foundation. Protected editing, persistent PostgreSQL state, real research migration, figure renderers, cross-system adapters, production-host deployment and browser acceptance have not yet been implemented.

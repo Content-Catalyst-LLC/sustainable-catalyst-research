@@ -1,6 +1,6 @@
 # RH-02 — Repository initialization and local acceptance
 
-**Repository:** New public source repository (name configured at publication)  
+**Repository:** `Content-Catalyst-LLC/sustainable-catalyst-research` (canonical public source)  
 **State:** Sanitized public-source candidate; independent production operations remain private.
 
 Application code is developed in GitHub and public-safe source status is maintained in `BUILD_MAP.md`. Internal environment/release documents are held in separate private operational repositories.
@@ -8,7 +8,7 @@ Application code is developed in GitHub and public-safe source status is maintai
 ## Isolated local/Pi build
 
 ```bash
-git clone <PUBLIC_REPOSITORY_CLONE_URL>
+git clone https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research.git
 cd sustainable-catalyst-research
 cp infrastructure/dev.env.example infrastructure/.env
 # Set RESEARCH_DEV_PASSWORD in infrastructure/.env to a freshly generated value.
@@ -34,4 +34,4 @@ The local service intentionally serves no actual research articles yet. Public a
 - No production mounts, passwords, credentials or existing-service migrations.
 - No protected Workspace identifiers or private datasets in the public catalog.
 - Research article workspaces are logical project records, not separate Docker containers.
-- Merging and Contabo cutover remain separate acceptance decisions.
+- Merging and any production host cutover remain separate acceptance decisions.

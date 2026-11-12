@@ -5,7 +5,7 @@
 
 ## Outcome
 
-The existing site-matched, cream/red Library/Lab-style workbench stays intact. The new standalone `research-web/assets/research-workbench-bridge.js` adds a **separate approved-metadata panel**, so that the original six static editorial preview records never disappear if the API fails, JavaScript is stripped, or Contabo has not yet passed acceptance. `research-workbench-bridge.css` contains only `#sc-research-v2` styles and does not modify Astra or other site pages.
+The existing site-matched, cream/red Library/Lab-style workbench stays intact. The new standalone `research-web/assets/research-workbench-bridge.js` adds a **separate approved-metadata panel**, so that the original six static editorial preview records never disappear if the API fails, JavaScript is stripped, or the production host has not yet passed acceptance. `research-workbench-bridge.css` contains only `#sc-research-v2` styles and does not modify Astra or other site pages.
 
 The module is **disabled by default**. It makes **zero backend requests** until the existing Research HTML root has `data-sc-public-api="enabled"`. Only an approved release may set that flag. The frontend uses same-origin relative URLs with `credentials: "omit"`, a 6-second request timeout and redirect refusal, and renders externally sourced metadata using `textContent`. No private login, cookie, source-download, POST, persisted search or Library mutation path is present.
 
@@ -17,7 +17,7 @@ The module is **disabled by default**. It makes **zero backend requests** until 
 | `GET /api/research/v1/objects?limit=50` | `sc-research-public-objects/1.0`, public UUID/title/type/approved rights |
 | `GET /api/research/v1/graph/metadata?limit=50` | `sc-research-public-object-graph/1.0`, reviewed node and relation snapshot |
 
-Both the Research API and the WordPress page must be on a **reviewed same-origin HTTPS route** before activation. Do not construct absolute requests to an unauthenticated Contabo IP address, enable cross-origin cookies, inject credentials, or expose private Library/Workspace API endpoints in the browser. The graph displays *approved structural metadata relations*, not scientific proof.
+Both the Research API and the WordPress page must be on a **reviewed same-origin HTTPS route** before activation. Do not construct absolute requests to an unauthenticated host IP address, enable cross-origin cookies, inject credentials, or expose private Library/Workspace API endpoints in the browser. The graph displays *approved structural metadata relations*, not scientific proof.
 
 ## WordPress installation contract
 
@@ -39,7 +39,7 @@ Preserve the existing page header, footer, consolidated site CSS and **RH-03.2 c
 - `node --test tests/test_workbench_bridge.cjs`
 - Full existing Python suite and Python compilation continue on GitHub Actions.
 - Automated tests cover bounded public record projection, preview protection, no background requests without explicit activation, and no private session/credential usage.
-- **No Contabo deployment, owner-account staging, PostgreSQL runtime, public-page installation, GitHub PR merge, or real scientific source import is authorized by RH-03.3 source commits.**
+- **No production-host deployment, owner-account staging, PostgreSQL runtime, public-page installation, GitHub PR merge, or real scientific source import is authorized by RH-03.3 source commits.**
 
 ## Follow-up builds
 
@@ -47,4 +47,4 @@ Preserve the existing page header, footer, consolidated site CSS and **RH-03.2 c
 **RH-02 / RH-05:** authenticated persistent workspaces and PostgreSQL migrations.  
 **RH-07:** typed read-only service adapters and data-provenance contracts.  
 **RH-03.3B:** replace preview content *only after* the authorizing sources and final page layout are accepted; preserve owner-edited HTML for rollback.  
-**RH-12:** Contabo release gate (secrets, backup/restore, ingress, owner identity, rollback).
+**RH-12:** Production host release gate (secrets, backup/restore, ingress, owner identity, rollback).

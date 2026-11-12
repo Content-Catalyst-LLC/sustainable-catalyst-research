@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import io
 import json
+import re
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 
@@ -21,6 +22,9 @@ SOURCES = {
     f"{PLUGIN}/assets/research-workbench-bridge.js": ROOT / "research-web" / "assets" / "research-workbench-bridge.js",
     f"{PLUGIN}/assets/research-workbench-bridge.css": ROOT / "research-web" / "assets" / "research-workbench-bridge.css",
     f"{PLUGIN}/assets/research-navigation.js": ROOT / "research-web" / "assets" / "research-navigation.js",
+    # SC-FIG-03B: the shared figure loader and the Research Hub panel. The renderer itself is the Lab plugin's.
+    f"{PLUGIN}/assets/research-figures.js": ROOT / "research-web" / "assets" / "research-figures.js",
+    f"{PLUGIN}/assets/research-hub-figures.js": ROOT / "research-web" / "assets" / "research-hub-figures.js",
 }
 
 
@@ -55,9 +59,23 @@ def build(output: Path) -> dict:
             raise RuntimeError("Required public Research navigation handler is missing")
     for marker in ("sc_research_bridge_fetch", "SC_RESEARCH_BRIDGE_ENABLED",
                    "SC_RESEARCH_API_ORIGIN", "wp_safe_remote_get",
-                   "sc_research_bridge_project", "sc_research_bridge_register_routes"):
+                   "sc_research_bridge_project", "sc_research_bridge_register_routes",
+                   "SC_RESEARCH_FIGURE_CHANNELS = array('staging-synthetic')",
+                   "SC_RESEARCH_FIGURES_LAB_RELEASE", "sc_research_figures_project",
+                   "array('local', 'development', 'staging')"):
         if marker not in php:
             raise RuntimeError("Required WordPress backend gate is missing")
+    figures = assets[f"{PLUGIN}/assets/research-figures.js"].decode("utf-8")
+    hub = assets[f"{PLUGIN}/assets/research-hub-figures.js"].decode("utf-8")
+    lab_release = re.search(r'"labRelease": "([0-9.]+)"', figures)
+    if not lab_release or f"SC_RESEARCH_FIGURES_LAB_RELEASE = '{lab_release.group(1)}'" not in php:
+        raise RuntimeError("Bridge Lab release does not match the figure renderer lock")
+    for marker in ("BEGIN RENDERER LOCK", "configure", "renderItems", "WP_ENDPOINT"):
+        if marker not in figures:
+            raise RuntimeError("Required figure loader gate is missing")
+    for marker in ('"staging-synthetic"', "/figures/status", "renderer.configure", "sc-research-figures-rendered"):
+        if marker not in hub:
+            raise RuntimeError("Required Research Hub figure gate is missing")
 
     manifest = {
         "schema": "sc-research-wordpress-bridge-package/1.0",

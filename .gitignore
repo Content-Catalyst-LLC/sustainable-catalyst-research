@@ -19,3 +19,5 @@ backups/
 infrastructure/production-secrets/
 infrastructure/production-runtime/
 production-backups/
+# SC-MODEL-01 staging credentials.
+infrastructure/secrets-model01/

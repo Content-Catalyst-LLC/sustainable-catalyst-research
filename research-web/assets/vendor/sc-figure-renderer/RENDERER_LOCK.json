@@ -1,0 +1,157 @@
+{
+ "schema": "sc-research-figure-renderer-lock/1.0",
+ "labRepository": "Content-Catalyst-LLC/sustainable-catalyst-lab",
+ "labCommit": "302015de7f1552779e01aa1f0f5be41ece4d6910",
+ "labRelease": "0.163.1.9",
+ "rendererVersion": "0.3.0",
+ "note": "Byte-identical copies of the Lab Graph Studio renderer; update only with this script.",
+ "files": [
+  {
+   "role": "plotly",
+   "kind": "script",
+   "path": "lib/plotly-3.3.1/plotly.min.js",
+   "labPath": "assets/lib/plotly-3.3.1/plotly.min.js",
+   "sha256": "e2b0f77ee8156ff9d525852fe4acb7bfe7d85e8a2e1da0523f6d16209b848968",
+   "integrity": "sha384-SsOMajmLeeY81sOzGCn88NjTdDwa+nz3Lb1ZNouSdXAz5TBsvD+Pwgf1Iqtxns6c",
+   "bytes": 4838938
+  },
+  {
+   "role": "vega",
+   "kind": "script",
+   "path": "lib/vega-6.4.0/vega.min.js",
+   "labPath": "assets/lib/vega-6.4.0/vega.min.js",
+   "sha256": "8f6a3587cf8d4f42c7e08120e3eb05d067e746d554e39d2dcf52acc0bd5ba28f",
+   "integrity": "sha384-VKdcJr3ZaBIJMbVcopTAI/JEuUkSY6qnwVu9iLuw0DnQ9gQ1JjsfZJhXFQAgNi43",
+   "bytes": 521123
+  },
+  {
+   "role": "vega-lite",
+   "kind": "script",
+   "path": "lib/vega-lite-6.5.0/vega-lite.min.js",
+   "labPath": "assets/lib/vega-lite-6.5.0/vega-lite.min.js",
+   "sha256": "83e215e84e308ee8688fa6503ba0f1cf8a3c05c0d61df2841a0b92bf86809e00",
+   "integrity": "sha384-pV2l7nzmyxZh02knvUH7N8zvtyCYsYiGt+SsE/emG/dFiBI6G0YJZFZ2FzEX72P3",
+   "bytes": 257954
+  },
+  {
+   "role": "vega-interpreter",
+   "kind": "script",
+   "path": "lib/vega-interpreter-2.3.2/vega-interpreter.classic.js",
+   "labPath": "assets/lib/vega-interpreter-2.3.2/vega-interpreter.classic.js",
+   "sha256": "3bba66a9912c02968723f46d4fbf340e32ea752b6ccfdc1a321458ce9ea195d7",
+   "integrity": "sha384-6ubzJVl9QzQeCiCO0ipsYQO8/ECOldDIOuEuvZTo7sQLeoCtTI9wYKIn/uKl420O",
+   "bytes": 9717
+  },
+  {
+   "role": "maplibre",
+   "kind": "script",
+   "path": "lib/maplibre-gl-5.24.0/maplibre-gl-csp.js",
+   "labPath": "assets/lib/maplibre-gl-5.24.0/maplibre-gl-csp.js",
+   "sha256": "a1f1847bac64aa00acbf80fbb79b2c5af24d8eecaaa5e2ad14080fab81f1de95",
+   "integrity": "sha384-+lDFpEYaS5ofD0qW/5dA+duOMWMSGs+utCY+wx9H/lS1i0WZ0bQH31giSmqYsxqR",
+   "bytes": 971665
+  },
+  {
+   "role": "fig02a-policy",
+   "kind": "script",
+   "path": "js/modules/graph-studio-plotly-preview-fig02a.js",
+   "labPath": "assets/js/modules/graph-studio-plotly-preview-fig02a.js",
+   "sha256": "8ffd4fbf413eed9c353abe048cb28fc521dccad9ca7ab4bc50089543ecdd2cc4",
+   "integrity": "sha384-gCjSePplIKFDu2M2/rMUS9CCuNXLdzSV0GidfvDRXK8Ap92HzFDoCkM8caVxvkhW",
+   "bytes": 22379
+  },
+  {
+   "role": "fig02b-vega-lite",
+   "kind": "script",
+   "path": "js/modules/graph-studio-vega-lite-fig02b.js",
+   "labPath": "assets/js/modules/graph-studio-vega-lite-fig02b.js",
+   "sha256": "443ca0ff1b710c339a2aa8e14b3a2a9b658f85b1ce2ef4b85c1c224132579d2c",
+   "integrity": "sha384-+0s/pYr5IoBilCQSP7uBEbnHBYiPW7qdzHzCYrETUXZE5Ud6E0lYGaiXMzSN6PUa",
+   "bytes": 29801
+  },
+  {
+   "role": "fig04-maplibre-contract",
+   "kind": "script",
+   "path": "js/modules/graph-studio-maplibre-fig03a.js",
+   "labPath": "assets/js/modules/graph-studio-maplibre-fig03a.js",
+   "sha256": "de8366f4ff9095c34f6de12396e1de225191afb6ecc7fdb10680651ef7862035",
+   "integrity": "sha384-GdASDl9BYqCpPaL3n+V0k8XcsAc1yxqRwAlSvKk14Fsy9RzFDGIuqqFfzOs9zj6l",
+   "bytes": 40120
+  },
+  {
+   "role": "fig04-maplibre",
+   "kind": "script",
+   "path": "js/modules/graph-studio-maplibre-renderer-fig04.js",
+   "labPath": "assets/js/modules/graph-studio-maplibre-renderer-fig04.js",
+   "sha256": "4d4b011a1fb5a5acb836f3864d16db63744accf82da29cb51dcf0e2677e73152",
+   "integrity": "sha384-BE08Y9F6EbpAJpDlwwfIAnRh3KJ79odN0uq+S+OMeoM4G17qoFoaidQi51oHgX03",
+   "bytes": 43077
+  },
+  {
+   "role": "renderer",
+   "kind": "script",
+   "path": "js/modules/graph-studio-figure-bundle-renderer.js",
+   "labPath": "assets/js/modules/graph-studio-figure-bundle-renderer.js",
+   "sha256": "d0dda3fb95edb428e5d56f14073278e6efda792d667f1a91e329a02d54f7fdd3",
+   "integrity": "sha384-y6AAioOV7v+ZlH8xiofrpVcFasacif1/dHP9aB1U96F/ZEbny/9xHZI3oIdIcgUp",
+   "bytes": 38527
+  },
+  {
+   "role": "maplibre-style",
+   "kind": "style",
+   "path": "lib/maplibre-gl-5.24.0/maplibre-gl.css",
+   "labPath": "assets/lib/maplibre-gl-5.24.0/maplibre-gl.css",
+   "sha256": "ab1e70d59ec40465bae7e7030da2f3ccf28133fd502e62bd598eefbadfd7a732",
+   "integrity": "sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK",
+   "bytes": 70024
+  },
+  {
+   "role": "fig02a-style",
+   "kind": "style",
+   "path": "css/sc-lab-graph-studio-plotly-preview-fig02a.css",
+   "labPath": "assets/css/sc-lab-graph-studio-plotly-preview-fig02a.css",
+   "sha256": "2eb7fe5931e53003df1ff8828ef661685503fff52fb8cb977d5e5a498db4d360",
+   "integrity": "sha384-0IwbQHAEX7hGcXAs17mPmMDhOSoiFbCxzMlTH9MoiNRSgGPgmaUm3rJsehLiXTpZ",
+   "bytes": 1618
+  },
+  {
+   "role": "renderer-style",
+   "kind": "style",
+   "path": "css/sc-lab-graph-studio-figure-bundle-renderer.css",
+   "labPath": "assets/css/sc-lab-graph-studio-figure-bundle-renderer.css",
+   "sha256": "5c9b4d81a02e992633978318c6968dcf6d88b158ce4013c63ea7e028b3cdb239",
+   "integrity": "sha384-qmjNMQgM74NQqKuOe7WWZsPpe+2HUzJ2NAXq3BpiNZunAZ1xXO1GKrY2lwtMzhuX",
+   "bytes": 1827
+  },
+  {
+   "role": "fig04-style",
+   "kind": "style",
+   "path": "css/sc-lab-graph-studio-maplibre-fig04.css",
+   "labPath": "assets/css/sc-lab-graph-studio-maplibre-fig04.css",
+   "sha256": "397809f3538c9fc0aedbafe1b99003c78c1e28df3ee6cf96ecc316e23ef5f9d7",
+   "integrity": "sha384-YhIdgxBJBZbRLwBID5wHfr3TIwMQH/rsog8MTjP+o4MevY+iYnb5CQtHWRa0JWlC",
+   "bytes": 5142
+  },
+  {
+   "role": "maplibre-worker",
+   "kind": "worker",
+   "path": "lib/maplibre-gl-5.24.0/maplibre-gl-csp-worker.js",
+   "labPath": "assets/lib/maplibre-gl-5.24.0/maplibre-gl-csp-worker.js",
+   "sha256": "f950e7b15c49c8b9c7bb52136df2a2df2f6f03b83b8927774573fc98b067f7f0",
+   "integrity": "sha384-wBzwLUk46fiEnNOOlHXeylfQrL/SzyNqSD0gYdQJskF9cbBaNcRDYn6ZmSBW4l0z",
+   "bytes": 457880
+  }
+ ],
+ "licenses": [
+  "lib/plotly-3.3.1/LICENSE.txt",
+  "lib/plotly-3.3.1/SOURCE.json",
+  "lib/vega-6.4.0/LICENSE",
+  "lib/vega-6.4.0/SOURCE.json",
+  "lib/vega-lite-6.5.0/LICENSE",
+  "lib/vega-lite-6.5.0/SOURCE.json",
+  "lib/vega-interpreter-2.3.2/LICENSE",
+  "lib/vega-interpreter-2.3.2/SOURCE.json",
+  "lib/maplibre-gl-5.24.0/LICENSE.txt",
+  "lib/maplibre-gl-5.24.0/SOURCE.json"
+ ]
+}

@@ -1,0 +1,12 @@
+{
+  "library": "plotly.js",
+  "version": "3.3.1",
+  "file": "plotly.min.js",
+  "sha256": "e2b0f77ee8156ff9d525852fe4acb7bfe7d85e8a2e1da0523f6d16209b848968",
+  "bytes": 4838938,
+  "origin": "plotly==6.5.2 Python wheel, plotly/package_data/plotly.min.js (unchanged)",
+  "wheelRecordSha256": "4rD3fugVb_nVJYUv5Ky3v-fYXoouHaBSP20WIJuEiWg",
+  "reason": "Byte-identical to the plotly.js used by the Workbench FIG-02A static export worker, so browser preview and PNG/SVG/PDF export render with the same library.",
+  "licence": "MIT (see LICENSE.txt)",
+  "network": "Served from the plugin directory only; no CDN."
+}

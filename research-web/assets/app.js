@@ -198,6 +198,8 @@ async function showWorkspace(slug) {
     addWorkspacePanel(host, "workspace-figures", "Data & figures",
       objects.filter(o => o.kind === "figure" || o.kind === "dataset").map(o => o.title + " (" + o.source_authority + ")"),
       "Reviewed graphs and data will be connected through the Research data service.");
+    // SC-FIG-02B: approved figures render inside "Data & figures" when the server enables them.
+    if (window.SCResearchFigures) window.SCResearchFigures.renderFigures(get("workspace-figures"), record.slug);
     addWorkspacePanel(host, "workspace-methods", "Methods",
       objects.filter(o => o.kind === "method" || o.kind === "notebook").map(o => o.title + " (" + o.source_authority + ")"),
       "Methods and reproducible notebooks are added as approved research objects.");

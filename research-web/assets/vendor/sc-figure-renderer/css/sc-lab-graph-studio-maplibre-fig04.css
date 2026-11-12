@@ -1,0 +1,56 @@
+/* SC-FIG-04 MapLibre geospatial views in the figure-bundle renderer. */
+.sc-lab-fig04-map-wrap { display: grid; gap: 0.75rem; }
+.sc-lab-fig04-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-start; }
+.sc-lab-fig04-controls fieldset { margin: 0; padding: 0.4rem 0.6rem; border: 1px solid #c8c8c8; border-radius: 4px; }
+.sc-lab-fig04-controls legend { font-weight: 600; font-size: 0.9rem; }
+/* SC-FIG-04.1: the controls keep native form semantics under Astra and the Lab UI bundle. Both style bare
+   input/button elements (width 100%, 44px minimum height, theme colours, range appearance none); every rule
+   here is scoped to .sc-lab-fig04-controls, so WordPress core and theme forms are not affected. */
+.sc-lab-fig04-layers label { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-start; text-align: left;
+  min-height: 44px; margin: 0; font-size: 0.9rem; line-height: 1.3; cursor: pointer; }
+/* Host pages can size bare inputs with ID selectors (e.g. "#page input { width: 100%; min-height: 44px }"),
+   which no class selector outranks; the native control box is therefore marked !important here, and only here. */
+.sc-lab-fig04-controls input[type="checkbox"] { -webkit-appearance: checkbox !important; appearance: auto !important; flex: none;
+  width: 1.125rem !important; height: 1.125rem !important; min-width: 1.125rem !important; max-width: 1.125rem !important;
+  min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important;
+  background: none; box-shadow: none; accent-color: #1f4e79; cursor: pointer; }
+.sc-lab-fig04-layers label span { min-width: 0; overflow-wrap: anywhere; }
+.sc-lab-fig04-time { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.sc-lab-fig04-time input[type="range"] { -webkit-appearance: auto !important; appearance: auto !important; width: 12rem !important;
+  max-width: 100% !important; min-height: 44px; margin: 0 !important; padding: 0 !important; border: 0 !important;
+  background: transparent; box-shadow: none; accent-color: #1f4e79; }
+.sc-lab-fig04-controls button { -webkit-appearance: none; appearance: none; display: inline-flex; align-items: center;
+  min-height: 44px; margin: 0; padding: 0.35rem 0.85rem; border: 1px solid #5f6b75; border-radius: 4px;
+  background: #ffffff; color: #1b2a36; font-size: 0.9rem; font-weight: 600; line-height: 1.3; text-align: center; box-shadow: none; cursor: pointer; }
+.sc-lab-fig04-controls button:hover, .sc-lab-fig04-controls button:focus { background: #eef3f8; color: #1b2a36; border-color: #1f4e79; }
+.sc-lab-fig04-controls button[aria-pressed="true"] { background: #1f4e79; color: #ffffff; border-color: #1f4e79; }
+.sc-lab-fig04-controls button:disabled { opacity: 0.55; cursor: not-allowed; }
+.sc-lab-fig04-controls input:focus-visible, .sc-lab-fig04-controls button:focus-visible,
+.sc-lab-fig04-export button:focus-visible { outline: 3px solid #1f4e79; outline-offset: 2px; }
+.sc-lab-fig04-export { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.sc-lab-fig04-export button { -webkit-appearance: none; appearance: none; min-height: 44px; margin: 0; padding: 0.35rem 0.85rem;
+  border: 1px solid #5f6b75; border-radius: 4px; background: #ffffff; color: #1b2a36; font-size: 0.9rem; font-weight: 600;
+  line-height: 1.3; box-shadow: none; cursor: pointer; }
+.sc-lab-fig04-export button:hover, .sc-lab-fig04-export button:focus { background: #eef3f8; color: #1b2a36; border-color: #1f4e79; }
+.sc-lab-fig04-export button:disabled { opacity: 0.55; cursor: not-allowed; }
+.sc-lab-fig04-download { display: inline-flex; align-items: center; min-height: 44px; font-size: 0.9rem; }
+.sc-lab-fig04-export output { font-size: 0.85rem; overflow-wrap: anywhere; }
+.sc-lab-fig04-uncertainty-note { font-size: 0.85rem; margin: 0 0 0.4rem; }
+.sc-lab-fig04-maps { display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
+.sc-lab-fig04-maps[data-split="two"] { grid-template-columns: 1fr 1fr; }
+.sc-lab-fig04-map { position: relative; min-height: 380px; border: 1px solid #c8c8c8; background: #f6f6f3; }
+.sc-lab-fig04-legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.85rem; }
+.sc-lab-fig04-legend ul { list-style: none; margin: 0; padding: 0; }
+.sc-lab-fig04-legend li, .sc-lab-fig04-ramp { display: flex; gap: 0.35rem; align-items: center; margin: 0.15rem 0; }
+.sc-lab-fig04-legend-title { font-weight: 600; margin: 0 0 0.2rem; }
+.sc-lab-fig04-legend-field { margin: 0 0 0.2rem; }
+.sc-lab-fig04-swatch { display: inline-block; width: 1rem; height: 1rem; border: 1px solid #555; flex: none; }
+.sc-lab-fig04-ramp .sc-lab-fig04-swatch { width: 1.4rem; border-width: 0; }
+.sc-lab-fig04-calculations dt { font-weight: 600; }
+.sc-lab-fig04-calculations dd { margin: 0 0 0.4rem; }
+.sc-lab-fig04-attribution, .sc-lab-fig04-status, .sc-lab-fig04-detail { font-size: 0.85rem; margin: 0; }
+@media (max-width: 720px) {
+  .sc-lab-fig04-maps[data-split="two"] { grid-template-columns: 1fr; }
+  .sc-lab-fig04-controls fieldset { flex: 1 1 100%; }
+  .sc-lab-fig04-time input[type="range"] { flex: 1 1 8rem; width: auto !important; min-width: 0; }
+}

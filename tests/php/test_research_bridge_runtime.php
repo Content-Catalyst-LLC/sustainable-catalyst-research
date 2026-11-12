@@ -14,6 +14,8 @@ class WP_Error {
 }
 function is_wp_error($value): bool { return $value instanceof WP_Error; }
 function add_action($hook, $callback): void {}
+function register_activation_hook($file, $callback): void {}
+function add_filter($hook, $callback, $priority = 10, $args = 1): void {}
 function get_option($name, $fallback = '') { return $GLOBALS['sc_test_options'][$name] ?? $fallback; }
 function update_option($key, $value, $autoload = false) { $GLOBALS['sc_test_options'][$key] = $value; }
 function home_url($path = '') { return 'https://sustainablecatalyst.com/' . ltrim($path, '/'); }

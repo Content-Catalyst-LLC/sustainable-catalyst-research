@@ -1,0 +1,13 @@
+{
+  "library": "vega-lite",
+  "version": "6.5.0",
+  "file": "vega-lite.min.js",
+  "sha256": "83e215e84e308ee8688fa6503ba0f1cf8a3c05c0d61df2841a0b92bf86809e00",
+  "bytes": 257954,
+  "origin": "npm vega-lite@6.5.0 build/vega-lite.min.js (unchanged)",
+  "npmTarballIntegrity": "sha512-fMXF6s0MrIg0UTWnLIfeFtgSLzVhyzSKobzGrh5rhS+mL6FOYFG3m7ouJ4U23gj65EK+gl9FIIT5w7wLNaAzkA==",
+  "npmFileSha256": "83e215e84e308ee8688fa6503ba0f1cf8a3c05c0d61df2841a0b92bf86809e00",
+  "licence": "BSD-3-Clause (see LICENSE)",
+  "network": "Served from the plugin directory only; no CDN.",
+  "reason": "FIG-02B Vega-Lite views in Graph Studio, rendered to SVG with the CSP-safe expression interpreter (no eval)."
+}

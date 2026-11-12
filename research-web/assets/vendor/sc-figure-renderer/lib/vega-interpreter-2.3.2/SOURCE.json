@@ -1,0 +1,13 @@
+{
+  "library": "vega-interpreter",
+  "version": "2.3.2",
+  "file": "vega-interpreter.classic.js",
+  "sha256": "3bba66a9912c02968723f46d4fbf340e32ea752b6ccfdc1a321458ce9ea195d7",
+  "bytes": 9717,
+  "origin": "npm vega-interpreter@2.3.2 build/vega-interpreter.js (ES module), rewritten to a classic script by scripts/package_vega_vendor.py",
+  "npmTarballIntegrity": "sha512-JDAoi3taFcCDLujZG84TNNUXdkAZ5WsSHssx8lWVYaxb9Slsjk7v7PtRIYXpSlUwLaKGRBqoJ9KDs36Z0eMEIw==",
+  "npmFileSha256": "c0bdb735a63f9276f136e8d90d7fdf5d8e9df8031eb069048fc9975c876fd7f9",
+  "licence": "BSD-3-Clause (see LICENSE)",
+  "network": "Served from the plugin directory only; no CDN.",
+  "reason": "FIG-02B Vega-Lite views in Graph Studio, rendered to SVG with the CSP-safe expression interpreter (no eval)."
+}

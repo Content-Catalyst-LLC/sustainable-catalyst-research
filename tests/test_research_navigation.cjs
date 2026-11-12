@@ -21,14 +21,14 @@ test("existing editor-approved public records are the only local discovery input
   const row = {
     querySelectorAll: () => [
       {textContent: "", querySelector: (q) => q === ".scrh-record-title" ?
-        {textContent: "Wexford rock weathering"} : {textContent: "Basalt field study"}},
+        {textContent: "Example Site rock weathering"} : {textContent: "Basalt field study"}},
       {textContent: "Climate, land & carbon"}, {textContent: "Research active"}, {textContent: "Scientific investigation"}
     ]
   };
   const root = {querySelectorAll: () => [row]};
   const result = navigation.readPreviewRows(root);
   assert.equal(result.length, 1);
-  assert.equal(result[0].title, "Wexford rock weathering");
+  assert.equal(result[0].title, "Example Site rock weathering");
   assert.equal(result[0].area, "Climate, land & carbon");
   assert.strictEqual(result[0].row, row);
 });

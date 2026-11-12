@@ -11,15 +11,23 @@ This file intentionally contains only **public-safe product capabilities** and g
 | Versioned research-object metadata | `research-api/app/object_registry.py` | Implemented, private by default |
 | Metadata analysis and provenance | `research-api/app/metadata_diagnostics.py` | Source implemented |
 | Graph analysis | `research-api/app/graph_analysis.py` and `research-graphs/` | Source implemented |
-| PostgreSQL schema migrations | `research-api/alembic/` | Five versioned migrations |
+| PostgreSQL schema migrations | `research-api/alembic/` | Twelve versioned migrations, tested up, down and up on PostgreSQL 16 |
+| Research convergence and provenance | `research-api/app/convergence.py`, `research-api/app/workspace_ingest.py` | Signed-approval provenance; idempotent Workspace execution ingest |
+| Editorial publishing | `research-api/app/editorial.py`, `research-api/app/editorial_ui/` | Append-only revisions, stewardship and audit chain |
+| Governed scientific figures | `research-api/app/figure_releases.py`, `research-api/app/public_figures.py`, `research-web/assets/research-figures.js`, `research-web/assets/research-hub-figures.js` | Figures serve only from a released article revision; synthetic staging channel only |
+| Shared Lab figure renderer (vendored, hash-locked) | `research-web/assets/vendor/sc-figure-renderer/` | Byte-identical to a pinned Lab release; third-party licences included |
+| Source-rights notices | `research-api/app/source_rights_sync.py` | Restricting a source withdraws dependent figures |
+| WordPress Research bridge | `wordpress/sc-research-bridge/` | Disabled by default; installable package built in CI |
+| Public source integrity gate | `scripts/check_public_source.py` | Manifest, renderer lock, secret scan, no links into private repositories |
 | Scientific Discovery contracts | `research-api/app/discovery.py` | Providers disabled until verified |
 | Public Research frontend | `research-web/` | Under development |
 | Anonymous-only API bridge | `research-web/assets/research-workbench-bridge.js` | Disabled by default |
 | Isolated deployment examples | `infrastructure/` | Generic templates; no production secrets |
-| Automated verification | `tests/` | Python, JavaScript, PostgreSQL tests |
+| Automated verification | `tests/`, `.github/workflows/` | Python, Node, PHP and PostgreSQL tests on every pull request; `main` requires them |
 
 ## Next milestones
 
+0. Scientific figures: reviewed map views through the shared renderer, then reviewed static views of 3D scenes; no production figure channel until approved.
 1. Verify the existing owner identity bridge and protect authenticated editing with authorization, CSRF safeguards, and tenant isolation.
 2. Add independently authorized, typed source adapters for approved metadata and provenance only.
 3. Implement reviewed public-data projection and richer accessible research graph navigation.
