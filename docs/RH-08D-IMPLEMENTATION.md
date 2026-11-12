@@ -16,15 +16,15 @@ A source found by search is a **discovery candidate**, not automatically verifie
 |---|---|---|---|
 | RH-08D-00 | Reconciled specifications across Documentation, Data, Handoffs and Research | Cross-repo review and owner approval for merge | Draft plans reconciled, unmerged |
 | RH-08D-01 | Discover main section + “Discover related evidence” in each article; accessible search, filters, loading/error/empty states | Existing research-web shell; public-only context; versioned API schema | **Next executable build** |
-| RH-08D-02 | OpenAlex/Crossref scholarly metadata results with source identifiers, URLs, retrieval timestamps and provider labels | Provider policy, safe outbound HTTP, rate caps, timeouts; no private context | Planned, read-only allowed |
-| RH-08D-03 | DOI normalization, stable-ID deduplication, metadata conflict and retraction states | Actual candidate sources and negative metadata tests | Planned |
+| RH-08D-02 | OpenAlex/Crossref scholarly metadata results with source identifiers, URLs, retrieval timestamps and provider labels | Provider policy, safe outbound HTTP, rate caps, timeouts; no private context | **Prepared offline (2026-11-12):** Discover results interface, source inspection, vetted HTTPS transport, Library intake drafts; live calls not authorised ([RH-08D-02](RH-08D-02-DISCOVER-INTERFACE.md)) |
+| RH-08D-03 | DOI normalization, stable-ID deduplication, metadata conflict and retraction states | Actual candidate sources and negative metadata tests | Implemented on synthetic fixtures (RH-08D-01); acceptance on real sources awaits live calls |
 | RH-08D-04 | Reopenable owner-scoped discovery sessions; per-article candidate review queue; Library source-review handoff | RH-02 PostgreSQL migration, certified authentication/CSRF/owner isolation, RH-07 Library adapter | **Blocked until persistence/identity gates** |
 | RH-08D-05 | Reviewed evidence attached to the article/knowledge graph; proposed new research revision | Library accepted evidence, explicit editorial review, RH-05/08 relationship model | Planned |
 | RH-08D-06 | Optional source-passage-grounded synthesis | Rights-cleared retrieved passages, per-claim source anchors, model opt-in and budgets | Disabled |
 | RH-08D-07 | Europe PMC, arXiv, permitted government datasets/web discovery | Provider-specific policy, rights, quotas, SSRF testing | Disabled |
 | RH-08D-08 | Scheduled search monitoring, notifications and operations | Owner opt-in, rights, RH-12 staging backup/rollback/production acceptance | Disabled |
 
-**2026-11-12 note:** the owner directive of this date assigned the label RH-08D-01 to the typed OpenAlex/Crossref adapter layer, i.e. the network-free part of RH-08D-02 and RH-08D-03 above; see [RH-08D-01 discovery adapters](RH-08D-01-DISCOVERY-ADAPTERS.md). The Discover interface follows it.
+**2026-11-12 note:** the owner directive of this date assigned the label RH-08D-01 to the typed OpenAlex/Crossref adapter layer, i.e. the network-free part of RH-08D-02 and RH-08D-03 above; see [RH-08D-01 discovery adapters](RH-08D-01-DISCOVERY-ADAPTERS.md). The Discover interface follows it as RH-08D-02. Since RH-08D-01, Discovery code and this register are developed in this public repository (the private export no longer writes them); the private-branch instructions below are historical.
 
 ## Workspace integration
 

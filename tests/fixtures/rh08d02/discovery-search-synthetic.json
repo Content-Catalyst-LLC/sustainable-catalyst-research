@@ -1,0 +1,423 @@
+{
+ "schema": "sc-research-discovery-search/1.0",
+ "stage": "RH-08D-02",
+ "run": {
+  "schema": "sc-research-discovery-run/1.0",
+  "adapter_version": "rh-08d-01/1.0",
+  "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+  "started_at": "2026-11-12T00:00:00+00:00",
+  "transport": "fixture",
+  "external_request_performed": false,
+  "persisted": false,
+  "publishable": false,
+  "outcomes": [
+   {
+    "provider": "openalex",
+    "status": "ok",
+    "attempts": 1,
+    "code": null,
+    "retry_after_seconds": null,
+    "records_received": 9,
+    "records_rejected": 2,
+    "rejection_reasons": {
+     "missing-provider-id": 1,
+     "missing-title": 1
+    }
+   },
+   {
+    "provider": "crossref",
+    "status": "ok",
+    "attempts": 1,
+    "code": null,
+    "retry_after_seconds": null,
+    "records_received": 7,
+    "records_rejected": 3,
+    "rejection_reasons": {
+     "retraction-notice": 1,
+     "missing-or-invalid-doi": 1,
+     "missing-title": 1
+    }
+   }
+  ],
+  "candidates": [
+   {
+    "candidate_id": "cand-d23d10c1e8bdbf71b642a101",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": "10.5555/sc-syn-001",
+    "title": "SYNTHETIC Basalt weathering rates in field trials",
+    "authors": [
+     {
+      "name": "A. Synthetic",
+      "orcid": "0000-0002-1825-0097"
+     }
+    ],
+    "publication_year": 2024,
+    "venue": "Synthetic Journal of Soil Studies",
+    "work_type": "article",
+    "landing_url": "https://example.org/synthetic/1",
+    "retracted": false,
+    "sources": [
+     {
+      "provider": "openalex",
+      "provider_record_id": "https://openalex.org/W9000001",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "add4f680f4671326d8e57f5ed4e749f3b93920afe4beaf1db68debb8add78f8b",
+      "response_sha256": "f28caac81ed29884251ff328fb7c95134a7d10462503d6c1cd30d794f98c406f",
+      "record_sha256": "2f3fbdcaf6faac313659f52ceb204e0f1bb3736b1d334e5f77f27d72e6b4490f",
+      "adapter_version": "rh-08d-01/1.0"
+     },
+     {
+      "provider": "openalex",
+      "provider_record_id": "https://openalex.org/W9000004",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "add4f680f4671326d8e57f5ed4e749f3b93920afe4beaf1db68debb8add78f8b",
+      "response_sha256": "f28caac81ed29884251ff328fb7c95134a7d10462503d6c1cd30d794f98c406f",
+      "record_sha256": "75b00b20adb994b01aaa707c53c8b8c2ae325e5c9e47e927f01556c1ca811cc2",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [
+     {
+      "field": "venue",
+      "values": {
+       "openalex": "Synthetic Journal of Soil Studies",
+       "openalex#2": "Synthetic Soil Studies"
+      }
+     }
+    ],
+    "possible_duplicate_of": []
+   },
+   {
+    "candidate_id": "cand-3f54ece2f44bb7a2c92b2064",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": "10.5555/sc-syn-002",
+    "title": "SYNTHETIC Carbon accounting for mineral amendments",
+    "authors": [
+     {
+      "name": "C. Example",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2023,
+    "venue": "Synthetic Review Letters",
+    "work_type": "article",
+    "landing_url": "https://example.org/synthetic/2",
+    "retracted": false,
+    "sources": [
+     {
+      "provider": "openalex",
+      "provider_record_id": "https://openalex.org/W9000002",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "add4f680f4671326d8e57f5ed4e749f3b93920afe4beaf1db68debb8add78f8b",
+      "response_sha256": "f28caac81ed29884251ff328fb7c95134a7d10462503d6c1cd30d794f98c406f",
+      "record_sha256": "53300ba17e340a154c4bb0d1079692d31c792f6d66e9c95aacec1c1ce52a6b02",
+      "adapter_version": "rh-08d-01/1.0"
+     },
+     {
+      "provider": "crossref",
+      "provider_record_id": "10.5555/sc-syn-002",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "34e1acecbcebb2b9771979895c233f6eaa0e7a3958dd66d9fd98784a58a04844",
+      "response_sha256": "969a8ac15c12b280bb4c7dc5c2533feb7312f2d276a71fb026c36362014113c1",
+      "record_sha256": "f39ccdc302d266fccab46bf6f12e31a7bc6f41cb1729744ac7e3d293126070b7",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [
+     {
+      "field": "publication_year",
+      "values": {
+       "openalex": "2023",
+       "crossref": "2022"
+      }
+     }
+    ],
+    "possible_duplicate_of": []
+   },
+   {
+    "candidate_id": "cand-ec1f8c5bee4925dba8a95e46",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": null,
+    "title": "SYNTHETIC Weathering model notes",
+    "authors": [
+     {
+      "name": "B. Placeholder",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2022,
+    "venue": "Synthetic Journal of Soil Studies",
+    "work_type": "article",
+    "landing_url": "https://example.org/synthetic/3",
+    "retracted": false,
+    "sources": [
+     {
+      "provider": "openalex",
+      "provider_record_id": "https://openalex.org/W9000003",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "add4f680f4671326d8e57f5ed4e749f3b93920afe4beaf1db68debb8add78f8b",
+      "response_sha256": "f28caac81ed29884251ff328fb7c95134a7d10462503d6c1cd30d794f98c406f",
+      "record_sha256": "583e493163082cebeb789e1d3ff73915b8cbeb3ed9f3e3fcbf22089d91c6b2e5",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [],
+    "possible_duplicate_of": [
+     "cand-555c9ec51760b667e33b5f32"
+    ]
+   },
+   {
+    "candidate_id": "cand-555c9ec51760b667e33b5f32",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": "10.5555/sc-syn-006",
+    "title": "SYNTHETIC Weathering model notes",
+    "authors": [
+     {
+      "name": "B. Placeholder",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2022,
+    "venue": "Synthetic Journal of Soil Studies",
+    "work_type": "article",
+    "landing_url": "https://example.org/synthetic/6",
+    "retracted": false,
+    "sources": [
+     {
+      "provider": "openalex",
+      "provider_record_id": "https://openalex.org/W9000006",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "add4f680f4671326d8e57f5ed4e749f3b93920afe4beaf1db68debb8add78f8b",
+      "response_sha256": "f28caac81ed29884251ff328fb7c95134a7d10462503d6c1cd30d794f98c406f",
+      "record_sha256": "d855a2d09f1ec6e4ce87834fa27ec7b8c1efbcc93e1e5917c356f7e2ada8c7aa",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [],
+    "possible_duplicate_of": [
+     "cand-ec1f8c5bee4925dba8a95e46"
+    ]
+   },
+   {
+    "candidate_id": "cand-0d966aff69df73e62af9a197",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": "10.5555/sc-syn-007",
+    "title": "SYNTHETIC Retracted trial summary",
+    "authors": [
+     {
+      "name": "E. Fictional",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2021,
+    "venue": "Synthetic Letters",
+    "work_type": "article",
+    "landing_url": null,
+    "retracted": true,
+    "sources": [
+     {
+      "provider": "openalex",
+      "provider_record_id": "https://openalex.org/W9000007",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "add4f680f4671326d8e57f5ed4e749f3b93920afe4beaf1db68debb8add78f8b",
+      "response_sha256": "f28caac81ed29884251ff328fb7c95134a7d10462503d6c1cd30d794f98c406f",
+      "record_sha256": "0e4c6e7576ab12380f4bf42d21386751e2057fce0968b468fe3ee75604c23ed0",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [],
+    "possible_duplicate_of": []
+   },
+   {
+    "candidate_id": "cand-11e31b0625432ce1b5611a7e",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": null,
+    "title": "SYNTHETIC Record with an invalid DOI",
+    "authors": [
+     {
+      "name": "G. Madeup",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2021,
+    "venue": "Synthetic Journal of Soil Studies",
+    "work_type": "article",
+    "landing_url": "https://example.org/synthetic/9",
+    "retracted": false,
+    "sources": [
+     {
+      "provider": "openalex",
+      "provider_record_id": "https://openalex.org/W9000009",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "add4f680f4671326d8e57f5ed4e749f3b93920afe4beaf1db68debb8add78f8b",
+      "response_sha256": "f28caac81ed29884251ff328fb7c95134a7d10462503d6c1cd30d794f98c406f",
+      "record_sha256": "ccfda378272e69cf2c366a865dbc58657bb5163bd1c130667e38b74b9f78285f",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [],
+    "possible_duplicate_of": []
+   },
+   {
+    "candidate_id": "cand-2f65363f66604684afefe8ef",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": "10.5555/sc-syn-010",
+    "title": "SYNTHETIC Retracted soil study",
+    "authors": [
+     {
+      "name": "H. Notreal",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2020,
+    "venue": "Synthetic Review Letters",
+    "work_type": "journal-article",
+    "landing_url": "https://doi.org/10.5555/sc-syn-010",
+    "retracted": true,
+    "sources": [
+     {
+      "provider": "crossref",
+      "provider_record_id": "10.5555/sc-syn-010",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "34e1acecbcebb2b9771979895c233f6eaa0e7a3958dd66d9fd98784a58a04844",
+      "response_sha256": "969a8ac15c12b280bb4c7dc5c2533feb7312f2d276a71fb026c36362014113c1",
+      "record_sha256": "66a1bacc72554e7143a868486cab7467280bf8d5e13ef503260d547c903e1ac2",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [],
+    "possible_duplicate_of": []
+   },
+   {
+    "candidate_id": "cand-0684c15c0c060edd3381bbe3",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": "10.5555/sc-syn-013",
+    "title": "SYNTHETIC Preprint and article pair",
+    "authors": [
+     {
+      "name": "D. Sample",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2024,
+    "venue": "Synthetic Review Letters",
+    "work_type": "posted-content",
+    "landing_url": "https://doi.org/10.5555/sc-syn-013",
+    "retracted": null,
+    "sources": [
+     {
+      "provider": "crossref",
+      "provider_record_id": "10.5555/sc-syn-013",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "34e1acecbcebb2b9771979895c233f6eaa0e7a3958dd66d9fd98784a58a04844",
+      "response_sha256": "969a8ac15c12b280bb4c7dc5c2533feb7312f2d276a71fb026c36362014113c1",
+      "record_sha256": "8acfb91f2b817624f26549fce8495945072a42f9ac42589f01120a8f766a369c",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [],
+    "possible_duplicate_of": [
+     "cand-ba500da0c9a24f5c1a316443"
+    ]
+   },
+   {
+    "candidate_id": "cand-ba500da0c9a24f5c1a316443",
+    "classification": "discovered-unreviewed",
+    "review_status": "unreviewed",
+    "publishable": false,
+    "doi": "10.5555/sc-syn-014",
+    "title": "SYNTHETIC Preprint and article pair",
+    "authors": [
+     {
+      "name": "D. Sample",
+      "orcid": null
+     }
+    ],
+    "publication_year": 2024,
+    "venue": "Synthetic Review Letters",
+    "work_type": "journal-article",
+    "landing_url": "https://doi.org/10.5555/sc-syn-014",
+    "retracted": null,
+    "sources": [
+     {
+      "provider": "crossref",
+      "provider_record_id": "10.5555/sc-syn-014",
+      "retrieved_at": "2026-11-12T00:00:00+00:00",
+      "query_sha256": "f7c6631677d39991d960d0f6bb8b0da8ad95a888907e62bdf67d1ac8cce04ab4",
+      "request_sha256": "34e1acecbcebb2b9771979895c233f6eaa0e7a3958dd66d9fd98784a58a04844",
+      "response_sha256": "969a8ac15c12b280bb4c7dc5c2533feb7312f2d276a71fb026c36362014113c1",
+      "record_sha256": "707cf0534e8eb7ce48436ab89b68f496450fd3531c1068aed37ab974042896fb",
+      "adapter_version": "rh-08d-01/1.0"
+     }
+    ],
+    "conflicts": [],
+    "possible_duplicate_of": [
+     "cand-0684c15c0c060edd3381bbe3"
+    ]
+   }
+  ]
+ },
+ "library_intake": {
+  "enabled": false,
+  "blocking_issues": {
+   "cand-d23d10c1e8bdbf71b642a101": [
+    "metadata-conflict"
+   ],
+   "cand-3f54ece2f44bb7a2c92b2064": [
+    "metadata-conflict"
+   ],
+   "cand-ec1f8c5bee4925dba8a95e46": [
+    "no-doi",
+    "possible-duplicate"
+   ],
+   "cand-555c9ec51760b667e33b5f32": [
+    "possible-duplicate"
+   ],
+   "cand-0d966aff69df73e62af9a197": [
+    "retracted"
+   ],
+   "cand-11e31b0625432ce1b5611a7e": [
+    "no-doi"
+   ],
+   "cand-2f65363f66604684afefe8ef": [
+    "retracted"
+   ],
+   "cand-0684c15c0c060edd3381bbe3": [
+    "retraction-status-unknown",
+    "possible-duplicate"
+   ],
+   "cand-ba500da0c9a24f5c1a316443": [
+    "retraction-status-unknown",
+    "possible-duplicate"
+   ]
+  }
+ },
+ "saved": false,
+ "publishable": false
+}

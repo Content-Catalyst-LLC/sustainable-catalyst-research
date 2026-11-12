@@ -1,4 +1,4 @@
-"""RH-08D-01: provider-disabling, metadata contracts, and public UI boundaries."""
+"""RH-08D-01/02: provider-disabling, metadata contracts, and public UI boundaries."""
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -25,7 +25,7 @@ def test_discovery_readiness_does_not_claim_live_retrieval():
     response = client.get("/api/research/v1/discovery/readiness")
     assert response.status_code == 200
     data = response.json()
-    assert data["stage"] == "RH-08D-01"
+    assert data["stage"] == "RH-08D-02"
     assert data["status"] == "not_activated"
     assert data["external_retrieval_enabled"] is False
     assert data["saved_searches_enabled"] is False

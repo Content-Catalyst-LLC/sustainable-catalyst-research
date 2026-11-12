@@ -21,6 +21,7 @@ This file intentionally contains only **public-safe product capabilities** and g
 | Public source integrity gate | `scripts/check_public_source.py` | Manifest, renderer lock, secret scan, no links into private repositories |
 | Scientific Discovery contracts | `research-api/app/discovery.py` | Providers disabled until verified |
 | Discovery adapters (OpenAlex, Crossref) | `research-api/app/discovery_adapters/` | Typed, offline-tested; no network transport, nothing published |
+| Discover interface and prepared HTTPS transport | `research-web/assets/research-discovery.js`, `research-api/app/discovery_adapters/https_transport.py`, `library_intake.py` | Synthetic-fixture tested; live providers, saving, Library submission and publication disabled |
 | Public Research frontend | `research-web/` | Under development |
 | Anonymous-only API bridge | `research-web/assets/research-workbench-bridge.js` | Disabled by default |
 | Isolated deployment examples | `infrastructure/` | Generic templates; no production secrets |

@@ -1,4 +1,4 @@
-"""Transports. There is deliberately no network transport in this package."""
+"""Offline transports and the transport exceptions. The live HTTPS transport is in ``https_transport``."""
 from .models import ProviderRequest, ProviderResponse
 
 
