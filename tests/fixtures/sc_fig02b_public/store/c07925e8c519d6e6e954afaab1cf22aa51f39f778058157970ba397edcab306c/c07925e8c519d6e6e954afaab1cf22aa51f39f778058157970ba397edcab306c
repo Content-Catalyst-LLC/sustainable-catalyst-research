@@ -1,0 +1,85 @@
+{
+ "schema": "sc.figure-bundle.v1",
+ "figureId": "SYN-PUB-plot-means",
+ "version": 1,
+ "title": "SYNTHETIC hypothetical plot means with reported uncertainty",
+ "project": {
+  "projectRef": "research-entry:synthetic-soil-carbon-scenarios",
+  "ownerScope": "isolated-synthetic",
+  "environment": "staging"
+ },
+ "publication": {
+  "kind": "technical-supplement",
+  "target": "research-entry:synthetic-soil-carbon-scenarios",
+  "bindingStatus": "synthetic-test"
+ },
+ "evidenceClass": "hypothetical",
+ "figureType": "evidence-chart",
+ "sourceRefs": [
+  {
+   "sourceId": "synthetic:plot-means-table-v1",
+   "provider": "Sustainable Catalyst synthetic fixture",
+   "identityStatus": "source-hash-verified",
+   "qualityStatus": "not-applicable",
+   "licenceStatus": "verified-for-use",
+   "sha256": "9700cff0165b7a9e2a744a06f676ef9bcea83c9299e4651e1ce2000d39e6238e"
+  }
+ ],
+ "calculationRefs": [],
+ "scientificContext": {
+  "interpretation": "Hypothetical plot means used to exercise the Plotly path of public Research figures.",
+  "limitations": [
+   "Synthetic values for placeholder plots",
+   "Plot C has no reported value and is not interpolated"
+  ],
+  "units": "t C ha-1",
+  "uncertaintyNotation": "Reported ± per plot (synthetic).",
+  "claimIds": [],
+  "doNotInfer": [
+   "any scientific conclusion",
+   "a value for Plot C"
+  ],
+  "measurementStatus": "hypothetical-only"
+ },
+ "rendering": {
+  "profileId": "sc-institutional-research-v1",
+  "palette": "colorblind-safe",
+  "accessibilityReview": "passed",
+  "visualizationSpecSha256": "ee2e740b4139b194bd60eaef2abf0b3965af02088f09239b7acde5c8c17f08b7",
+  "renderer": "plotly",
+  "rendererVersion": "plotly.js 3.3.1",
+  "caption": "SYNTHETIC: hypothetical plot means with reported ±; Plot C is missing.",
+  "altText": "Four synthetic plots; three show means between 1.8 and 3.1 with error bars, Plot C has no value."
+ },
+ "artifacts": [
+  {
+   "format": "json",
+   "artifactRef": "sc://workspace/figure/SYN-PUB-plot-means/ee2e740b4139b194bd60eaef2abf0b3965af02088f09239b7acde5c8c17f08b7.json",
+   "sha256": "ee2e740b4139b194bd60eaef2abf0b3965af02088f09239b7acde5c8c17f08b7",
+   "mediaType": "application/vnd.plotly.v1+json",
+   "width": 620,
+   "height": 340,
+   "status": "staging-verified",
+   "revision": 1
+  }
+ ],
+ "provenance": {
+  "authorityOwner": "workspace",
+  "sourceSnapshotIds": [
+   "synthetic:plot-means-table-v1"
+  ],
+  "generationRunId": "synthetic-run:ee2e740b4139b194bd60eaef",
+  "generatedAt": "2026-11-11T00:00:00Z",
+  "reproducibility": "synthetic-fixture-tested"
+ },
+ "review": {
+  "scientific": "approved",
+  "visual": "approved",
+  "rights": "approved",
+  "sourceIntegrity": "approved",
+  "publication": "approved",
+  "reviewerId": "synthetic-reviewer",
+  "reviewedAt": "2026-11-11T00:00:00Z",
+  "notes": "Synthetic staging review record; no real review took place."
+ }
+}

@@ -29,7 +29,7 @@ def db(tmp_path):
         engine.dispose()
 
 
-def provision(session, slug="wexford-scientific-research", project="wexford-erw"):
+def provision(session, slug="example-site-scientific-research", project="example-site-erw"):
     workspace = ws.create_entry_workspace(
         session, area_slug="climate-and-land",
         project_key=project, owner_scope="owner-test",
@@ -57,8 +57,8 @@ def test_workspace_always_created_and_idempotent(db):
 
 def test_each_article_has_independent_workspace_under_one_project(db):
     with Session(db) as session:
-        scientific = provision(session, "wexford-scientific-research")
-        policy = provision(session, "wexford-policy-research")
+        scientific = provision(session, "example-site-scientific-research")
+        policy = provision(session, "example-site-policy-research")
         assert scientific.id != policy.id
         assert len(session.scalars(select(ws.EntryWorkspace)).all()) == 2
         assert len(session.scalars(select(ws.ResearchProject)).all()) == 1
@@ -71,7 +71,7 @@ def test_owner_scope_cannot_be_reassigned(db):
         with pytest.raises(PermissionError):
             ws.create_entry_workspace(
                 session, area_slug="climate-and-land",
-                project_key="wexford-erw", owner_scope="attacker",
+                project_key="example-site-erw", owner_scope="attacker",
                 entry_slug="another-paper", title="Unauthorized",
             )
         assert len(session.scalars(select(ws.EntryWorkspace)).all()) == 1
@@ -133,7 +133,7 @@ def test_public_workspace_requires_area_and_entry_approval(db):
         area.visibility = "public-approved"
         session.flush()
         data = ws.approved_workspace_view(session, entry.slug)
-        assert data["slug"] == "wexford-scientific-research"
+        assert data["slug"] == "example-site-scientific-research"
         assert data["summary"] == "Verified safe summary for public visitors."
         assert data["revisions"] == []
         assert data["objects"] == []
@@ -191,7 +191,7 @@ def test_public_api_workspace_endpoint_and_404(db):
             session.get(ws.ResearchArea, p.area_id).visibility = "public-approved"
             session.commit()
         client = TestClient(app)
-        response = client.get("/api/research/v1/workspaces/wexford-scientific-research")
+        response = client.get("/api/research/v1/workspaces/example-site-scientific-research")
         assert response.status_code == 200
         assert response.json()["sections"][0] == "overview"
         assert client.get("/api/research/v1/workspaces/private-entry").status_code == 404
@@ -203,7 +203,7 @@ def test_public_api_workspace_endpoint_and_404(db):
 def test_workspace_has_no_unauthenticated_editor_route(db):
     client = TestClient(app)
     for path in (
-        "/api/research/v1/workspaces/wexford-scientific-research/revisions",
+        "/api/research/v1/workspaces/example-site-scientific-research/revisions",
         "/api/research/v1/editor/workspaces",
     ):
         assert client.post(path, json={"title":"malicious"}).status_code in (404, 405)

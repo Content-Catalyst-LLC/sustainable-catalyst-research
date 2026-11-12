@@ -3,7 +3,7 @@ Contributors: sustainable-catalyst
 Tags: research, public metadata, backend, research publications
 Requires at least: 6.0
 Requires PHP: 8.0
-Stable tag: 0.2.4
+Stable tag: 0.5.1
 License: Proprietary
 
 A fail-closed, read-only WordPress bridge to the persistent Sustainable Catalyst Research API.
@@ -28,7 +28,7 @@ must not enable backend requests or change live site routing.
    remain intact with the feature disabled.
 3. Have the authorized server operator provision a separate, reviewed public
    HTTPS Research API origin on a Sustainable Catalyst subdomain. It must be
-   reachable from WordPress; the current Contabo loopback port alone cannot be
+   reachable from WordPress; the current host loopback port alone cannot be
    used. The origin must serve only the PUBLIC Research API, never Workspace
    introspection or /api/research/v1/private/*.
 4. After database migration, populated backup/restore, public approval/rights
@@ -45,7 +45,7 @@ must not enable backend requests or change live site routing.
    define('SC_RESEARCH_BRIDGE_ENABLED', true);
 
    Do not enable until the real API origin exists and is reviewed. No tokens,
-   private source IDs or Contabo IP addresses should be entered in WordPress.
+   private source IDs or host IP addresses should be entered in WordPress.
 5. In Tools > Research Bridge, refresh to test the actual upstream database.
    Status must read "Connected — verified Research PostgreSQL".
    Also verify HTTPS, GET /wp-json/sc-research/v1/status, /articles, /objects,
@@ -76,9 +76,69 @@ must not enable backend requests or change live site routing.
 - Tools > Research Bridge shows a real read-only backend status check and
   the approved public API address; it never exposes or stores credentials.
 - This package does not install or modify reverse proxies, DNS, PHP credentials,
-  Workspace sessions, private database connections or Contabo services.
+  Workspace sessions, private database connections or production-host services.
 - Disabling the flag or deactivating the plugin removes its live integration;
   the existing page and its editor-created static preview remain.
+
+== 0.5.1 runtime uncertainty records in the facade (SC-FIG-05.3), release candidate ==
+
+The figure facade now passes released files with role "runtime-record" (JSON only)
+to the Lab renderer. 0.5.0 refused every package that carried one, so bands, fans
+and map uncertainty layers could not be shown on the Hub (found in isolated staging
+acceptance). Pairing is unchanged: Lab 0.163.1.9 exactly. For isolated staging only.
+
+== 0.5.0 runtime uncertainty (SC-FIG-05.3), release candidate ==
+
+Released figures may draw confidence and prediction bands, ensemble quantile fans
+and map uncertainty layers, but only from the Workspace runtime records released
+with the views (role "runtime-record"). The Lab renderer refuses any other filled
+area. A figure with no record says "Uncertainty unavailable". Requires the Lab
+plugin at exactly release 0.163.1.9; bridge 0.5.x and Lab 0.163.1.9 are installed
+as a pair. The figure channel rules are unchanged: this release still accepts
+only "staging-synthetic". For isolated staging only.
+
+== 0.4.0 geospatial figures (SC-FIG-04) ==
+
+Released figures may include Lab MapLibre map views
+(application/vnd.sc.maplibre-view.v1+json): Site Intelligence evidence objects
+drawn from inline GeoJSON with layer selection, a scientific legend, time steps,
+a side-by-side comparison and the full data table. No basemap, tiles or imagery
+are requested. Requires the Lab plugin at exactly release 0.163.1.8 (MapLibre GL
+JS 5.24.0, loaded from the Lab plugin under the Research integrity lock; its
+worker is checked against SHA-384 and started from a blob: URL, so a page
+Content-Security-Policy, if any, must allow worker-src blob:). The figure channel
+rules are unchanged: this release still accepts only "staging-synthetic".
+
+== 0.3.0 released scientific figures (SC-FIG-03B) ==
+
+Adds the Research Hub "Released scientific figures" panel. A figure is shown only
+while the Research API lists it as released (a live article revision released its
+exact, approved sc.figure-bundle.v1). Three more fixed GET routes are forwarded:
+/figures/status, /figures/<uuid> and /figures/<uuid>/files/<sha256>. Packages are
+re-projected through a field allowlist and file URLs are rewritten to this facade;
+file bytes are passed through unchanged as attachment, sandboxed, nosniff. Every
+response is Cache-Control: no-store and nothing is cached in WordPress, so an
+update, unlisting or withdrawal applies on the next page view.
+
+Figures render with the Lab plugin's own sc.figure-bundle.v1 renderer files,
+loaded under the Research integrity lock (Subresource Integrity). There is no
+second figure engine in this plugin. Requirements, all fail-closed:
+
+- the bridge is enabled with an approved origin;
+- the Sustainable Catalyst Lab plugin is active at exactly release 0.163.1.7;
+- a figure channel is set with the SC_RESEARCH_FIGURES_CHANNEL constant or the
+  sc_research_figures_channel option. This release accepts only
+  "staging-synthetic"; a production channel needs a later, approved release;
+- the Research API reports the same channel.
+
+Isolated staging only: SC_RESEARCH_API_STAGING_ORIGIN (wp-config.php) may name a
+single-label internal service over plain HTTP, e.g. http://research-web. It is
+honoured only when wp_get_environment_type() is local, development or staging,
+and only that host is allowed through wp_safe_remote_get. Never set it on
+production.
+
+The catalog gains a "Released figures" filter and links to rendered figures; the
+graph summary counts released figure nodes.
 
 == 0.2.4 navigation fix ==
 
@@ -101,7 +161,7 @@ stay unchanged. Refresh the frontend after upgrading to replace cached CSS/JS.
 == 0.2.2 fix ==
 
 A confirmed PostgreSQL-backed connection now updates the legacy preview's
-"Not connected / Contabo integration pending" badge to "Connected — public API"
+"Not connected / Host integration pending" badge to "Connected — public API"
 and the live approved-article count. This is an additive status correction:
 all six static editorial entries, preview counts and separate private Workspace
 notices remain unchanged. Status is updated only after verification of the

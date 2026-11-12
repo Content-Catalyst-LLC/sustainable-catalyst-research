@@ -170,7 +170,8 @@ def test_relationships_are_private_by_default_and_restricted_to_owner(engine):
         workspace = make_workspace(session)
         approve_article(session, workspace)
         a = register(session, workspace, source_id="dataset", kind="dataset")
-        b = register(session, workspace, source_id="figure", kind="figure")
+        # A statistical result: figures are public only once released (SC-FIG-03A, test_sc_fig03a_*).
+        b = register(session, workspace, source_id="figure", kind="statistical-result")
         approve_object(a)
         approve_object(b)
         relation = md.propose_relation(

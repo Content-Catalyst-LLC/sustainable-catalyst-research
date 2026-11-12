@@ -8,6 +8,9 @@ on:
       - "research-web/assets/research-workbench-bridge.js"
       - "research-web/assets/research-workbench-bridge.css"
       - "research-web/assets/research-navigation.js"
+      - "research-web/assets/research-figures.js"
+      - "research-web/assets/research-hub-figures.js"
+      - "tests/test_research_hub_figures.cjs"
       - "tests/test_research_navigation.cjs"
       - "scripts/build_wordpress_bridge.py"
       - "tests/test_rhprod06_wordpress_package.py"
@@ -20,6 +23,9 @@ on:
       - "research-web/assets/research-workbench-bridge.js"
       - "research-web/assets/research-workbench-bridge.css"
       - "research-web/assets/research-navigation.js"
+      - "research-web/assets/research-figures.js"
+      - "research-web/assets/research-hub-figures.js"
+      - "tests/test_research_hub_figures.cjs"
       - "tests/test_research_navigation.cjs"
       - "scripts/build_wordpress_bridge.py"
       - "tests/test_rhprod06_wordpress_package.py"
@@ -50,6 +56,10 @@ jobs:
           php -l wordpress/sc-research-bridge/sc-research-bridge.php
           php -l tests/php/test_research_bridge_runtime.php
           php tests/php/test_research_bridge_runtime.php
+          php -l tests/php/test_research_bridge_figures.php
+          php tests/php/test_research_bridge_figures.php
+          php -l tests/php/test_research_bridge_pairing.php
+          php tests/php/test_research_bridge_pairing.php
           grep -F 'Plugin Name: Sustainable Catalyst Research Bridge' wordpress/sc-research-bridge/sc-research-bridge.php
       - name: Test package invariants
         run: |
@@ -61,6 +71,8 @@ jobs:
           node --test tests/test_workbench_bridge.cjs
           node --check research-web/assets/research-navigation.js
           node --test tests/test_research_navigation.cjs
+          node --check research-web/assets/research-hub-figures.js
+          node --test tests/test_research_hub_figures.cjs tests/test_research_figures.cjs
       - name: Assemble installable WordPress plugin ZIP
         run: |
           python scripts/build_wordpress_bridge.py --output "$PWD/dist/sc-research-bridge.zip"
@@ -79,4 +91,4 @@ jobs:
           echo 'WordPress ZIP built and tested from the current commit.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Plugin is **disabled by default**; public read-only API routes only.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Workspace SSO remains on the existing Workspace HTTPS origin; WordPress never authenticates private research users.' >> "$GITHUB_STEP_SUMMARY"
-          echo '**NOT INSTALLED, NOT ACTIVATED, NO CONTABO CUTOVER, NO LIVE BACKEND PROOF.**' >> "$GITHUB_STEP_SUMMARY"
+          echo '**NOT INSTALLED, NOT ACTIVATED, NO PRODUCTION-HOST CUTOVER, NO LIVE BACKEND PROOF.**' >> "$GITHUB_STEP_SUMMARY"

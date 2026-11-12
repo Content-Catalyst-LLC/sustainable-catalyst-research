@@ -11,6 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 app = FastAPI(title="Sustainable Catalyst Research", version="0.1.0", docs_url=None, redoc_url=None)
 CATALOG_FILE = Path(__file__).with_name("public-catalog.json")
 PREFIX = "/api/research/v1"
+# Readiness requires exactly this Alembic head (tests assert it matches the migrations).
+SCHEMA_HEAD = "0012_source_rights_sync"
 AREA_FIELDS = ("slug", "title", "summary")
 ARTICLE_FIELDS = ("slug", "area_slug", "title", "summary", "version", "state")
 
@@ -70,7 +72,7 @@ def ready():
             raise RuntimeError("unconfigured")
         with research_workspaces._engine.connect() as connection:
             version = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            if version != "0005_metadata_history":
+            if version != SCHEMA_HEAD:
                 raise RuntimeError("migration required")
             connection.execute(text("SELECT id FROM research_metadata_objects LIMIT 0"))
     except (SQLAlchemyError, RuntimeError):
@@ -140,9 +142,18 @@ from . import workspaces as research_workspaces
 # Import before dev-only create_all so Research object metadata tables register
 # in the same independent PostgreSQL schema.
 from . import object_registry as research_objects
+# SC-MODEL-01: provenance/approval tables extend the same registry; writes stay
+# disabled unless an isolated staging deployment enables its service credential.
+from . import convergence as research_convergence
+from . import workspace_ingest as research_workspace_ingest
+# SC-ED-01: editorial publishing over the same registry; writes share the convergence gate.
+from . import editorial as research_editorial
 
 app.include_router(research_workspaces.router)
+app.include_router(research_convergence.router)
+app.include_router(research_workspace_ingest.router)
 app.include_router(research_objects.router)
+app.include_router(research_editorial.router)
 
 _db_url = os.getenv("RESEARCH_DATABASE_URL")
 if os.getenv("RESEARCH_DATABASE_URL_FILE"):
@@ -157,3 +168,9 @@ if _db_url:
 from . import discovery as research_discovery
 
 app.include_router(research_discovery.router)
+
+# SC-FIG-02B: read-only public figures. Off unless a release channel and store are configured;
+# serves only figure revisions already approved at object, article and area level.
+from . import public_figures as research_public_figures
+
+app.include_router(research_public_figures.router)

@@ -23,13 +23,13 @@ From **Workspace**, that user can:
 ## Hierarchy: one project, many logical output workspaces
 
 ```text
-Workspace Project  WXR — Enhanced Rock Weathering / Wexford
+Workspace Project  EXS — Enhanced Rock Weathering / Example Site
   ├── ResearchProject (linked by external_workspace_ref)
-  │     ├── ResearchEntry: Wexford scientific report
+  │     ├── ResearchEntry: Example Site scientific report
   │     │     └── EntryWorkspace + immutable revisions + sources + release records
-  │     ├── ResearchEntry: Wexford policy brief
+  │     ├── ResearchEntry: Example Site policy brief
   │     │     └── EntryWorkspace + independent revisions + sources + release records
-  │     └── ResearchEntry: Wexford public research overview
+  │     └── ResearchEntry: Example Site public research overview
   │           └── EntryWorkspace + independent revisions + sources + release records
   └── Workspace publication board: one row and one release control per output
 ```
@@ -75,9 +75,9 @@ The parent project gains an **Outputs & Publishing** board:
 
 | Output | Type | Research workspace | Last private revision | Public release | Review | Actions |
 | --- | --- | --- | --- | --- | --- | --- |
-| Wexford scientific report | Scientific report | Open Research | Draft r3 | None | Private | Edit, request review |
-| Wexford policy brief | Policy brief | Open Research | Draft r4 | r2 | Update pending | Preview r2, review r4, publish approved update |
-| Wexford public overview | Research overview | Open Research | r1 | r1 | Approved | View public, unlist/withdraw |
+| Example Site scientific report | Scientific report | Open Research | Draft r3 | None | Private | Edit, request review |
+| Example Site policy brief | Policy brief | Open Research | Draft r4 | r2 | Update pending | Preview r2, review r4, publish approved update |
+| Example Site public overview | Research overview | Open Research | r1 | r1 | Approved | View public, unlist/withdraw |
 
 **These rows are UI examples, not asserted live records.** Each row owns an independent review and publication state. Controls should show whether the public listing is active, the exact public revision, approved rights, publish target and last release receipt.
 
@@ -120,14 +120,14 @@ These paths are **candidates**, not deployed APIs. Implement exact routes only a
 3. **RH-PUB-01C — Review, approval and release service:** immutable release snapshots, rights gates, audit, publication state machine, retract/withdraw and cache invalidation.
 4. **RH-PUB-01D — Workspace publishing board:** author/project creation, per-output preview, review, publish, update, unlist and withdraw buttons with user-visible receipts and errors. No fake active buttons.
 5. **RH-PUB-01E — Public Research integration:** approved-output-only catalogs and stable public views; separate public WP Publications linkage; metadata graph respects per-output rights and revocation.
-6. **RH-PUB-01F — End-to-end certification and guarded Contabo deploy:** synthetic Wexford/Metrics fixtures, two-owner isolation, publishing one of three siblings leaves the rest private, accurate public listing/counts, restart persistence, revocation, backup/restore and real-account browser acceptance.
+6. **RH-PUB-01F — End-to-end certification and guarded production-host deploy:** synthetic Example Site/Metrics fixtures, two-owner isolation, publishing one of three siblings leaves the rest private, accurate public listing/counts, restart persistence, revocation, backup/restore and real-account browser acceptance.
 
 **Release sequencing:** Do not deploy 01B–01E to production merely because implementation exists. 01A is the blocker for authenticated writes; build registry/migrations and private-scope tests in isolated staging first.
 
 ## Definition of done
 
 - An authorized user creates one parent project with three independent output workspaces, links Library evidence, edits and versions each.
-- An approved release of **only** the Wexford public overview appears on public Research and in WordPress's read-only Research bridge; the scientific report and policy brief remain private.
+- An approved release of **only** the Example Site public overview appears on public Research and in WordPress's read-only Research bridge; the scientific report and policy brief remain private.
 - Changing private drafts does not change public content; a later approved update changes only its designated public revision.
 - Withdrawing the public overview removes or safely tombstones it and clears caches; historical audit persists.
 - Another account cannot list, edit, approve or publish any of the three outputs.

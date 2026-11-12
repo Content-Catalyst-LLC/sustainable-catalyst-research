@@ -27,13 +27,20 @@ KINDS = frozenset({
     "research-article", "publication", "source", "claim", "evidence",
     "dataset", "statistical-result", "figure", "model", "notebook",
     "place", "scene", "method", "policy", "research-question", "analysis",
+    # SC-MODEL-01 convergence outputs (see convergence.py).
+    "computation", "simulation", "result", "table", "scenario", "scenario-comparison",
+    "decision-analysis", "assumption", "conclusion", "reproduction",
 })
 SOURCE_AUTHORITIES = ws.SOURCES | frozenset({"openalex", "crossref", "europe-pmc", "arxiv"})
 PUBLIC_PREDICATES = frozenset({
     "contains", "cites", "derived-from", "references", "related-to",
     "same-doi-reviewed", "shared-topics-reviewed", "declared-dependency",
+    "uses-dataset", "produced-by", "visualizes", "compares", "reproduces", "synthesizes",
 })
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+DATA_CLASSIFICATIONS = frozenset({
+    "unknown", "observed", "modelled", "synthetic", "illustrative", "literature-derived",
+})
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
@@ -133,7 +140,7 @@ def register_metadata_object(
         raise ValueError("Invalid title or public summary length")
     if source_sha256 is not None and not SHA256.fullmatch(source_sha256):
         raise ValueError("Invalid source SHA-256")
-    if data_classification not in {"unknown", "observed", "modelled", "synthetic", "illustrative"}:
+    if data_classification not in DATA_CLASSIFICATIONS:
         raise ValueError("Invalid scientific data classification")
     if doi is not None and (len(doi) > 240 or not doi.startswith("10.")):
         raise ValueError("DOI must be canonical metadata or omitted")
@@ -197,7 +204,7 @@ def propose_relation(
     return row
 
 
-def public_query(*, article: str = "", kind: str = "", q: str = ""):
+def public_query(*, article: str = "", kind: str = "", q: str = "", include_unlisted: bool = False, apply_hold: bool = True):
     query = (
         select(ResearchObject, ws.ResearchEntry.slug, ws.ResearchArea.title)
         .join(ws.EntryWorkspace, ws.EntryWorkspace.id == ResearchObject.workspace_id)
@@ -214,8 +221,14 @@ def public_query(*, article: str = "", kind: str = "", q: str = ""):
             ws.ResearchArea.visibility == APPROVED,
         )
     )
+    # SC-FIG-03A: a figure is public only while a live article revision releases its exact bundle,
+    # so a figure dropped by an update leaves listings, search and the graph with its bytes.
+    from . import figure_releases as fr  # figure_releases imports this module
+    query = query.where(or_(ResearchObject.kind != "figure", ResearchObject.id.in_(fr.live_release_object_ids(apply_hold=apply_hold))))
     if article:
         query = query.where(ws.ResearchEntry.slug == article)
+    elif not include_unlisted:
+        query = query.where(ws.ResearchEntry.id.not_in(ws.unlisted_entry_ids()))
     if kind:
         query = query.where(ResearchObject.kind == kind)
     if q:
@@ -265,8 +278,9 @@ def list_public_objects(
 def public_object(public_key: str, session: Session = Depends(ws.get_session)):
     if not UUID.fullmatch(public_key):
         raise HTTPException(status_code=404, detail="Research object not found")
+    # A direct link (unguessable key) is not discovery: an unlisted article's objects stay reachable.
     row = session.execute(
-        public_query().where(ResearchObject.public_key == public_key)
+        public_query(include_unlisted=True).where(ResearchObject.public_key == public_key)
     ).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Research object not found")

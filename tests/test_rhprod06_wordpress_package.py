@@ -19,7 +19,7 @@ def test_installer_zip_contains_real_wordpress_plugin_and_local_adapter(tmp_path
     artifact = tmp_path / "sc-research-bridge.zip"
     result = package.build(artifact)
     assert result["status"] == "INSTALLABLE_NOT_DEPLOYED"
-    assert result["files"] == 6
+    assert result["files"] == 8
     assert result["sha256"] == hashlib.sha256(artifact.read_bytes()).hexdigest()
     with ZipFile(artifact) as z:
         assert set(z.namelist()) == {
@@ -27,6 +27,8 @@ def test_installer_zip_contains_real_wordpress_plugin_and_local_adapter(tmp_path
             "sc-research-bridge/assets/research-workbench-bridge.js",
             "sc-research-bridge/assets/research-navigation.js",
             "sc-research-bridge/assets/research-workbench-bridge.css",
+            "sc-research-bridge/assets/research-figures.js",
+            "sc-research-bridge/assets/research-hub-figures.js",
             "sc-research-bridge/readme.txt",
             "sc-research-bridge/integrity.json",
         }
@@ -88,3 +90,19 @@ def test_package_builder_refuses_bad_output_suffix(tmp_path):
     import pytest
     with pytest.raises(ValueError):
         package.build(tmp_path / "not-a-zip.json")
+
+
+def test_figure_assets_ship_with_the_lock_and_no_renderer_copy(tmp_path):
+    """SC-FIG-03B: the bridge ships the loader and hub panel, never a second renderer or vendored library."""
+    artifact = tmp_path / "sc-research-bridge.zip"
+    package.build(artifact)
+    with ZipFile(artifact) as z:
+        names = z.namelist()
+        assert not any("plotly" in n or "vega" in n or "vendor" in n for n in names)
+        figures = z.read("sc-research-bridge/assets/research-figures.js").decode()
+        plugin = z.read("sc-research-bridge/sc-research-bridge.php").decode()
+    assert '"labRelease": "0.163.1.9"' in figures
+    assert "SC_RESEARCH_FIGURES_LAB_RELEASE = '0.163.1.9'" in plugin
+    assert "'application/vnd.sc.maplibre-view.v1+json'" in plugin and '"kind": "worker"' in figures
+    assert "SC_RESEARCH_FIGURE_CHANNELS = array('staging-synthetic')" in plugin
+    assert "'Cache-Control', 'no-store'" in plugin

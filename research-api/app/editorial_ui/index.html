@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Research Editorial (private)</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a64;--line:#dedbd2;--accent:#1f5f4a;--bad:#a3302a;--ok:#1f6b3a;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#141412;--fg:#ecebe6;--muted:#a3a19a;--line:#33322e;--accent:#7cc4a6;--bad:#f08a80;--ok:#8fd19e;--card:#1c1c19}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0 12px 0 0}.pill{font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+main{display:grid;grid-template-columns:280px 1fr;gap:0;min-height:calc(100vh - 56px)}@media (max-width:820px){main{grid-template-columns:1fr}}
+aside{border-right:1px solid var(--line);padding:16px}section{padding:16px 20px;min-width:0}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}input,textarea,select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);font:inherit}
+textarea{min-height:90px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}
+button{padding:7px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--bg);font:inherit;cursor:pointer;margin:8px 6px 0 0}
+button.secondary{background:transparent;color:var(--accent)}button:disabled{opacity:.5;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:0 0 14px}
+.card h2{font-size:15px;margin:0 0 8px}.muted{color:var(--muted)}.bad{color:var(--bad)}.ok{color:var(--ok)}
+ul.list{list-style:none;padding:0;margin:0}ul.list li{padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer}ul.list li:hover{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all}
+#log{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12px;max-height:200px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Research editorial</h1>
+  <span class="pill">private · staging operator console</span>
+  <span class="pill" id="gate">checking gate…</span>
+</header>
+<main>
+  <aside>
+    <div class="card">
+      <h2>Session</h2>
+      <p class="muted" style="font-size:12px;margin:0">Held in this tab's memory only. Production editing waits for SC-UP-01 sessions.</p>
+      <label for="token">Staging service credential</label><input id="token" type="password" autocomplete="off">
+      <label for="owner">Owner scope</label><input id="owner" placeholder="workspace-user:…">
+      <label for="actor">Acting as (blank = owner)</label><input id="actor" placeholder="workspace-user:…">
+      <label for="att">Editor attestation (signed JSON from Workspace)</label><textarea id="att" style="min-height:60px"></textarea>
+      <button id="connect">Load articles</button>
+    </div>
+    <ul class="list" id="articles"></ul>
+    <div class="card" style="margin-top:14px">
+      <h2>New article</h2>
+      <label for="n-area">Area slug</label><input id="n-area">
+      <label for="n-key">Project key</label><input id="n-key">
+      <label for="n-ws">Workspace project id</label><input id="n-ws">
+      <label for="n-slug">Article slug</label><input id="n-slug">
+      <label for="n-title">Title</label><input id="n-title">
+      <button id="create">Create or adopt</button>
+    </div>
+  </aside>
+  <section>
+    <div id="article"><p class="muted">Load articles and select one.</p></div>
+    <div class="card"><h2>Activity</h2><div id="log" class="muted"></div></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

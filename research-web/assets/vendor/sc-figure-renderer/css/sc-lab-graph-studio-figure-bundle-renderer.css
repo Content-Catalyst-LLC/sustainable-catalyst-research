@@ -1,0 +1,20 @@
+/* SC-FIG-01 generic sc.figure-bundle.v1 renderer (default off); extends the FIG-02A panel styles. */
+.sc-lab-figure-bundle-title{margin:0 0 4px;font-weight:600}
+/* SC-FIG-03A: release state comes from Sustainable Catalyst Research, never from the bundle. */
+.sc-lab-figure-bundle-release{margin:0 0 6px;padding:6px 10px;border-left:3px solid #6b6b6b;font-size:.8125rem;color:#333}
+.sc-lab-figure-bundle-release[data-release-state="released"]{border-left-color:#1a7f37}
+.sc-lab-figure-bundle-release[data-release-state="mismatch"],.sc-lab-figure-bundle-release[data-release-state="invalid"]{border-left-color:#b42318}
+.sc-lab-figure-bundle-view{margin:8px 0}
+.sc-lab-figure-bundle-static{display:block;max-width:100%;height:auto;image-rendering:auto;border:1px solid #c9ced6}
+.sc-lab-figure-bundle-unavailable{margin:6px 0;padding:8px 10px;border:1px dashed #6b6b6b;border-radius:4px;font-size:.8125rem;color:#333}
+.sc-lab-figure-bundle-interpretation{margin:8px 0 4px;font-size:.875rem}
+.sc-lab-figure-bundle-limitations{margin:0 0 6px 18px;font-size:.8125rem}
+.sc-lab-figure-bundle-donotinfer{margin:0 0 6px;font-size:.8125rem;font-weight:600}
+/* SC-FIG-02B Vega-Lite views and verified SVG export (default off). */
+.sc-lab-fig02b-plot{max-width:100%;overflow-x:auto}
+.sc-lab-fig02b-plot svg{max-width:100%;height:auto}
+.sc-lab-fig02b-uncertainty,.sc-lab-fig02b-dataset{margin:4px 0;font-size:.8125rem;overflow-wrap:anywhere}
+.sc-lab-fig02b-export{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0;font-size:.8125rem}
+.sc-lab-fig02b-export-button{padding:4px 10px;border:1px solid #2f3a48;border-radius:4px;background:#fff;color:#1d2530;cursor:pointer}
+.sc-lab-fig02b-export-button:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}
+.sc-lab-fig02b-download{color:#1d4ed8;text-decoration:underline}

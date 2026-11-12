@@ -1,0 +1,99 @@
+{
+ "schema": "sc.figure-bundle.v1",
+ "figureId": "SYN-ERW-vega-lite",
+ "version": 1,
+ "title": "SYNTHETIC enhanced rock weathering uptake scenario with literature comparisons",
+ "project": {
+  "projectRef": "fig02b-synthetic-ci",
+  "ownerScope": "unbound-local",
+  "environment": "local-review"
+ },
+ "publication": {
+  "kind": "none",
+  "target": "unassigned",
+  "bindingStatus": "unbound"
+ },
+ "evidenceClass": "modelled",
+ "figureType": "evidence-chart",
+ "sourceRefs": [
+  {
+   "sourceId": "synthetic:erw-scenario-parameters-v1",
+   "provider": "Sustainable Catalyst test fixture",
+   "identityStatus": "source-hash-verified",
+   "qualityStatus": "not-applicable",
+   "licenceStatus": "verified-for-use",
+   "sha256": "78c5e0eacdc374e66db126ed6a7f02515461efaf6aac25b6a00e0249d795b470"
+  },
+  {
+   "sourceId": "synthetic:literature-comparison-placeholder",
+   "provider": "test fixture standing in for published literature",
+   "citationId": "SYNTHETIC-CITATION-1",
+   "identityStatus": "source-identified",
+   "qualityStatus": "pending",
+   "licenceStatus": "pending"
+  }
+ ],
+ "calculationRefs": [
+  {
+   "system": "workbench",
+   "runRef": "synthetic-fixture:erw-uptake-scenario-v1",
+   "method": "first-order dissolution with synthetic parameters",
+   "outputSha256": "ac984bc9cc9cb29331a10e22124b7d0bc70a44cd03986c548f235cbeb4bc6f90",
+   "assumptionRefs": [
+    "synthetic:erw-scenario-parameters-v1"
+   ]
+  }
+ ],
+ "scientificContext": {
+  "interpretation": "Synthetic modelled uptake curves with a scenario band beside two synthetic literature comparison points; exercises FIG-02B only.",
+  "limitations": [
+   "Synthetic values with no scientific meaning",
+   "Not Wexford measurements; no carbon removal is measured or certified"
+  ],
+  "measurementStatus": "computed-from-specified-inputs",
+  "claimIds": [],
+  "doNotInfer": [
+   "any scientific conclusion",
+   "measured or certified carbon removal"
+  ]
+ },
+ "rendering": {
+  "profileId": "sc-institutional-research-v1",
+  "renderer": "vega-lite",
+  "rendererVersion": "vega-lite 6.5.0; vega 6.4.0",
+  "caption": "SYNTHETIC: modelled uptake scenarios (dashed, with band) and literature-style comparison points with ranges.",
+  "altText": "Line chart of two synthetic modelled uptake scenarios over 48 months with shaded bands, and two synthetic comparison points with error bars.",
+  "palette": "colorblind-safe",
+  "accessibilityReview": "pending",
+  "visualizationSpecSha256": "9bda41111db315fbad5c623c2331394c4191793fa74ff1ca26d61c3916318864"
+ },
+ "artifacts": [
+  {
+   "format": "json",
+   "artifactRef": "sc://lab/fig02b/SYN-ERW-vega-lite/9bda41111db315fbad5c623c2331394c4191793fa74ff1ca26d61c3916318864.json",
+   "sha256": "9bda41111db315fbad5c623c2331394c4191793fa74ff1ca26d61c3916318864",
+   "mediaType": "application/vnd.vegalite.v5+json",
+   "width": 720,
+   "height": 420,
+   "status": "local-review",
+   "revision": 1
+  }
+ ],
+ "provenance": {
+  "authorityOwner": "lab",
+  "sourceSnapshotIds": [
+   "synthetic:erw-scenario-parameters-v1",
+   "synthetic:literature-comparison-placeholder"
+  ],
+  "generationRunId": "lab.fig02b-fixture-builder:9bda41111db315fbad5c623c",
+  "generatedAt": "2026-11-11T00:00:00Z",
+  "reproducibility": "synthetic-fixture-tested"
+ },
+ "review": {
+  "scientific": "pending",
+  "visual": "pending",
+  "rights": "pending",
+  "sourceIntegrity": "pending",
+  "publication": "pending"
+ }
+}

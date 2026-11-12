@@ -1,0 +1,23 @@
+{
+  "library": "maplibre-gl",
+  "version": "5.24.0",
+  "files": {
+    "maplibre-gl-csp.js": {
+      "sha256": "a1f1847bac64aa00acbf80fbb79b2c5af24d8eecaaa5e2ad14080fab81f1de95",
+      "bytes": 971665
+    },
+    "maplibre-gl-csp-worker.js": {
+      "sha256": "f950e7b15c49c8b9c7bb52136df2a2df2f6f03b83b8927774573fc98b067f7f0",
+      "bytes": 457880
+    },
+    "maplibre-gl.css": {
+      "sha256": "ab1e70d59ec40465bae7e7030da2f3ccf28133fd502e62bd598eefbadfd7a732",
+      "bytes": 70024
+    }
+  },
+  "origin": "npm maplibre-gl@5.24.0 dist/ (unchanged)",
+  "npmTarballIntegrity": "sha512-ALyFxgtd5R+65UqZ/++lOqwWcC0SNho9c27fYSyLmG7AfnAul2o46F05aDJGPbFU57wos9dgcIySHs0Xe6ia3A==",
+  "licence": "BSD-3-Clause (see LICENSE.txt)",
+  "network": "Served from the plugin directory only; no CDN. The worker is started only after its bytes match the pinned hash.",
+  "reason": "SC-FIG-04 geospatial figures in Graph Studio (inline GeoJSON only; no basemap, tiles, glyphs or sprites)."
+}

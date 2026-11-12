@@ -62,6 +62,7 @@
       summary: safeText(row.summary, 1400),
       kind: safeText(row.kind, 48),
       article: safeText(row.article, 150),
+      area: safeText(row.area, 130),
       authority: safeText(row.authority, 64),
       data_classification: safeText(row.data_classification, 30),
       doi: safeText(row.doi, 240)
@@ -73,14 +74,17 @@
   // No keystrokes, private terms or identifiers are sent to any provider.
   function filterApprovedItems(articles, objects, query, kind) {
     var needle = safeText(query, 120).trim().toLowerCase();
-    var selected = kind === "articles" || kind === "objects" ? kind : "all";
+    var selected = kind === "articles" || kind === "objects" || kind === "figures" ? kind : "all";
     function matches(row) {
       return !needle || (row.title + " " + row.summary + " " +
         (row.area || row.article || "") + " " + (row.authority || "")).toLowerCase().includes(needle);
     }
+    // "figures": released scientific figures only (the public API lists a figure only while released).
     return {
-      articles: selected === "objects" ? [] : articles.filter(matches),
-      objects: selected === "articles" ? [] : objects.filter(matches)
+      articles: selected === "objects" || selected === "figures" ? [] : articles.filter(matches),
+      objects: selected === "articles" ? [] : objects.filter(function (row) {
+        return matches(row) && (selected !== "figures" || row.kind === "figure");
+      })
     };
   }
 
@@ -128,11 +132,21 @@
         card.append(heading, make("p", obj.summary),
           make("small", obj.kind + " · " + obj.authority + " · " +
             obj.data_classification + " · Rights cleared"));
+        if (obj.kind === "figure" && root.ownerDocument &&
+            root.ownerDocument.getElementById("sc-research-figure-" + obj.id)) {
+          // Only link to a figure the Research Hub actually rendered on this page.
+          var view = make("a", "View released figure", "scrh-api-figure-link");
+          view.href = "#sc-research-figure-" + obj.id;
+          card.dataset.scFigure = obj.id;
+          card.append(view);
+        }
         list.append(card);
       }
     }
     if (search) search.addEventListener("input", showApprovedRecords);
     if (kind) kind.addEventListener("change", showApprovedRecords);
+    // The Research Hub figure panel renders asynchronously; refresh the figure links once it has.
+    if (root.ownerDocument) root.ownerDocument.addEventListener("sc-research-figures-rendered", showApprovedRecords);
     showApprovedRecords();
 
     var metadata = result.graph && result.graph.schema ===
@@ -145,9 +159,14 @@
       var edges = Array.isArray(metadata.edges) ? metadata.edges.filter(function (edge) {
         return edge && verified.has(edge.source) && verified.has(edge.target);
       }).slice(0, 30) : [];
-      graph.append(make("p", nodes.length + " approved metadata nodes · " +
-        edges.length + " reviewed structural relations among the loaded records. " +
-        "These links are not scientific proof."));
+      var figureNodes = objects.filter(function (x) {
+        return x.kind === "figure" && nodes.some(function (n) { return n.id === x.id; });
+      }).length;
+      var graphSummary = make("p", nodes.length + " approved metadata nodes (" + figureNodes +
+        " released figures) · " + edges.length + " reviewed structural relations among the loaded records. " +
+        "These links are not scientific proof.");
+      graphSummary.dataset.scGraphFigures = String(figureNodes);
+      graph.append(graphSummary);
       if (edges.length) {
         var relationList = make("ul");
         edges.forEach(function (edge) {
@@ -183,10 +202,9 @@
         statusElement = current.parentElement;
         current.nodeValue = current.nodeValue.replace(
           "Not connected", "Connected — public API");
-      } else if (content === "Contabo integration pending") {
-        current.nodeValue = current.nodeValue.replace(
-          "Contabo integration pending",
-          "PostgreSQL ready · " + status.approved_articles + " approved articles");
+      } else if (/ integration pending$/.test(content)) {
+        // The live page names its host before "integration pending"; match the stable suffix only.
+        current.nodeValue = "PostgreSQL ready · " + status.approved_articles + " approved articles";
       } else if (content === "Connected — public API") {
         statusElement = current.parentElement;
       }
@@ -231,7 +249,8 @@
     var typeLabel = make("label", "Record type");
     var typeSelect = make("select");
     typeSelect.dataset.scPublicType = "true";
-    [["all", "All reviewed records"], ["articles", "Articles"], ["objects", "Research objects"]]
+    [["all", "All reviewed records"], ["articles", "Articles"], ["objects", "Research objects"],
+      ["figures", "Released figures"]]
       .forEach(function (entry) {
         var option = make("option", entry[1]);
         option.value = entry[0];

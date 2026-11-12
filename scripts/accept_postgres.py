@@ -9,9 +9,12 @@ from uuid import uuid4
 from sqlalchemy import create_engine, text, select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import DBAPIError
+from alembic.script import ScriptDirectory
 sys.path.insert(0, os.getcwd())
 from app import workspaces as ws
 from app import object_registry as registry
+from app import convergence
+from app import editorial
 
 url=(Path(os.environ['RESEARCH_DATABASE_URL_FILE']).read_text().strip()
      if os.getenv('RESEARCH_DATABASE_URL_FILE') else os.environ['RESEARCH_DATABASE_URL'])
@@ -19,7 +22,9 @@ engine=create_engine(url)
 assert engine.dialect.name == 'postgresql'
 with engine.connect() as connection:
     assert connection.scalar(text('select current_database()')) == 'research_staging'
-    assert connection.scalar(text('select version_num from alembic_version')) == '0005_metadata_history'
+    # The expected head comes from the migrations shipped beside the app, so a new migration cannot leave this stale.
+    expected_head=ScriptDirectory(str(Path(ws.__file__).resolve().parents[1] / 'alembic')).get_current_head()
+    assert connection.scalar(text('select version_num from alembic_version')) == expected_head, expected_head
 print('PASS migrated dedicated PostgreSQL')
 suffix=uuid4().hex[:10]
 with Session(engine) as s:
@@ -81,6 +86,9 @@ with Session(engine) as s:
     entry.rights_cleared=False; s.flush()
     assert not s.execute(registry.public_query().where(registry.ResearchObject.id==obj.id)).first()
     assert ws.approved_workspace_view(s,entry.slug) is None
+    # This DB-level fixture bypasses the editor on purpose; return it to private so it does not
+    # remain public state that the SC-ED-01 integrity check (rightly) reports.
+    area.visibility='private'; entry.visibility='private'
     s.commit()
 print('PASS entry rights revocation hides workspace, catalog and objects')
 try:
@@ -108,3 +116,45 @@ try:
 except DBAPIError:
     pass
 print('PASS append-only relationship history')
+h=lambda c: c*64
+plain={'sourceRefs':[{'authority':'library','sourceId':'syn'}],'scientificClassification':'synthetic',
+       'uncertainty':{'status':'not-quantified','reason':'fixture'},'artifactSha256':h('a'),
+       'verification':{'status':'hash-verified'},'reviewStatus':'unreviewed'}
+bundle=convergence.seal_bundle({'schema':convergence.BUNDLE_SCHEMA,
+    'project':{'researchArea':'acceptance','projectKey':'conv-'+suffix,'entrySlug':'conv-'+suffix,
+               'title':'Synthetic convergence','workspaceProjectRef':'workspace-project:syn-'+suffix},
+    'objects':[{'localId':'ds','authority':'library','sourceId':'syn-'+suffix,'sourceVersion':'v1','kind':'dataset',
+                'title':'Synthetic dataset','dataClassification':'synthetic','provenance':plain}],'relations':[]})
+with Session(engine) as s:
+    out=convergence.ingest_bundle(s,owner_scope='synthetic-a',bundle=bundle); s.commit()
+    prov_object=out['objects']['ds']['id']
+    assert convergence.ingest_bundle(s,owner_scope='synthetic-a',bundle=bundle)['objects']['ds']['id']==prov_object
+for sql in ["UPDATE research_output_provenance SET record_sha256=:z WHERE object_id=:id",
+            'DELETE FROM research_output_provenance WHERE object_id=:id']:
+    try:
+        with engine.begin() as c:
+            c.execute(text(sql),{'id':prov_object,'z':h('0')})
+        raise AssertionError('provenance mutation accepted')
+    except DBAPIError:
+        pass
+print('PASS SC-MODEL-01 convergence ingest is idempotent and provenance is immutable')
+actor=editorial.Actor('synthetic-a','owner','synthetic-a','*')
+with Session(engine) as s:
+    out=editorial.create_article(s,actor,area_slug='acceptance-editorial-'+suffix,project_key='ed-'+suffix,
+        workspace_project_id='syn-ed-'+suffix,slug='ed-'+suffix,title='Synthetic editorial acceptance')
+    rev=editorial.add_revision(s,actor,slug='ed-'+suffix,base_revision=0,title='Synthetic editorial acceptance',
+        summary='',sections=[{'heading':'Overview','body':'Synthetic.'}],references=[])
+    s.commit()
+    chain=editorial.verify_chain(s)
+    assert chain['valid'] and chain['events']>=3, chain
+for sql in ["UPDATE research_editorial_events SET action='tamper' WHERE seq=(SELECT max(seq) FROM research_editorial_events)",
+            'DELETE FROM research_editorial_events WHERE seq=(SELECT max(seq) FROM research_editorial_events)',
+            "UPDATE research_editorial_revisions SET document_sha256=:z WHERE object_id=:o",
+            "DELETE FROM research_area_stewards WHERE steward_scope='synthetic-a'"]:
+    try:
+        with engine.begin() as c:
+            c.execute(text(sql),{'z':h('0'),'o':rev['objectId']})
+        raise AssertionError('editorial record mutation accepted: '+sql[:40])
+    except DBAPIError:
+        pass
+print('PASS SC-ED-01 editorial revisions, stewardship and audit chain are append-only')

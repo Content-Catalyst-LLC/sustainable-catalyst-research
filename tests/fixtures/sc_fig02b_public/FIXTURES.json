@@ -1,0 +1,22 @@
+{
+ "description": "SYNTHETIC SC-FIG-02B public-release fixtures; no scientific meaning.",
+ "article": "synthetic-soil-carbon-scenarios",
+ "figures": [
+  {
+   "figureId": "SYN-PUB-soil-carbon",
+   "bundleSha256": "1c472dc67754519849d77b66542e71633bd6eb911670deca7e7631c315934011",
+   "evidenceClass": "modelled",
+   "title": "SYNTHETIC soil organic carbon scenarios with a scenario band",
+   "viewSha256": "d5c34f6ae72881086d6ed6772fae6d19e2416e256f7121bfd731922531a9e162",
+   "mediaType": "application/vnd.vegalite.v5+json"
+  },
+  {
+   "figureId": "SYN-PUB-plot-means",
+   "bundleSha256": "c07925e8c519d6e6e954afaab1cf22aa51f39f778058157970ba397edcab306c",
+   "evidenceClass": "hypothetical",
+   "title": "SYNTHETIC hypothetical plot means with reported uncertainty",
+   "viewSha256": "ee2e740b4139b194bd60eaef2abf0b3965af02088f09239b7acde5c8c17f08b7",
+   "mediaType": "application/vnd.plotly.v1+json"
+  }
+ ]
+}

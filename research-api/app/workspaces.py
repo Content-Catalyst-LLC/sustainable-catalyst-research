@@ -26,6 +26,8 @@ SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SOURCES = frozenset({
     "library", "research-librarian", "workspace", "reporting-studio",
     "workbench", "lab", "site-intelligence", "publications", "research",
+    # SC-MODEL-01: decision-analysis and runtime authorities converge in Research.
+    "decision-studio", "platform-core",
 })
 KINDS = frozenset({"figure", "dataset", "source", "analysis", "notebook", "publication", "method"})
 PUBLIC_STATES = frozenset({"active-research", "published", "updated", "superseded"})
@@ -317,6 +319,12 @@ def public_workspace(slug: str, session: Session = Depends(get_session)):
     return record
 
 
+def unlisted_entry_ids():
+    """SC-PUB-M1: published but unlisted articles stay reachable by link and are never discoverable."""
+    from .editorial import EditorialArticle  # editorial imports this module; resolve at call time
+    return select(EditorialArticle.entry_id).where(EditorialArticle.publication_status == "unlisted")
+
+
 def approved_catalog_from_database(session: Session) -> tuple[list[dict], list[dict]]:
     """One Research-owned source of truth for public areas and article discovery.
 
@@ -333,6 +341,7 @@ def approved_catalog_from_database(session: Session) -> tuple[list[dict], list[d
             ResearchEntry.visibility == APPROVED,
             ResearchEntry.rights_cleared.is_(True),
             ResearchEntry.state.in_(PUBLIC_STATES),
+            ResearchEntry.id.not_in(unlisted_entry_ids()),
         )
     ).all()
     areas_by_slug = {}

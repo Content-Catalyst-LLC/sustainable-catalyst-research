@@ -1,9 +1,9 @@
 # RH-05.2 — Python Research Backend and Metadata APIs
 
 **Record date:** 2026-11-05  
-**Repository:** `Content-Catalyst-LLC/sustainable-catalyst-research`  
-**Review:** [Research PR #5](https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research/pull/5)  
-**Status:** Source and CI acceptance only. Not deployed on Contabo or connected to real upstream services.
+**Repository:** canonical public source `Content-Catalyst-LLC/sustainable-catalyst-research`; developed in the private Research repository  
+**Review:** Research PR #5 in the private Research repository (not public)  
+**Status:** Source and CI acceptance only. Not deployed on the production host or connected to real upstream services.
 
 ## Purpose
 
@@ -45,18 +45,18 @@ The public Research page should retain the existing Sustainable Catalyst site he
 - No dynamic private data in WordPress HTML. The browser calls only a reviewed, public-approved API via same-origin HTTPS reverse proxy.
 - **Owner's modified HTML/CSS are the design source of truth** once received. No automated overwrite, reformat or visual rebrand before reconciliation.
 
-## Contabo deployment path
+## Production host deployment path
 
 1. **RH-02 completion:** proper PostgreSQL migration tool (not production `create_all`), existing Workspace identity bridge, per-owner authorization and audit.
 2. **RH-05.2 integration:** real PostgreSQL migration and restart persistence, authorization-negative cases, large metadata / indexed query performance, invalidation/retraction and rights-revocation tests.
 3. **RH-07 source adapters:** verify current *live* authorized Library knowledge-graph/lineage endpoints and individual source services; use typed read-only requests with source authority/version/freshness and explicit permissions.
 4. **RH-05.4 worker:** isolated, bounded metadata/graph jobs and deterministic graph exports; no arbitrary external URLs or uploaded code execution.
-5. **RH-12 Contabo gate:** pinned images, secrets outside Git, internal-only database and worker, Caddy route review, rate limits, HTTPS, backup/restore, reversible migrations, staging browser acceptance, rollback, explicit release authorization.
+5. **RH-12 production host gate:** pinned images, secrets outside Git, internal-only database and worker, Caddy route review, rate limits, HTTPS, backup/restore, reversible migrations, staging browser acceptance, rollback, explicit release authorization.
 6. **Page connection:** update owner-approved WordPress HTML to request the read-only Research API over reviewed same-origin routes, rather than embedding data/private credentials in WordPress.
 
 ## Verification
 
-As of this checkpoint, GitHub Actions reports **42 passed, 1 warning** for the stacked Research source branch. The tests run with disposable SQLite databases. This is **not** a production PostgreSQL, Contabo, owner-account or full-browser certification. No real research data has been migrated by this PR.
+As of this checkpoint, GitHub Actions reports **42 passed, 1 warning** for the stacked Research source branch. The tests run with disposable SQLite databases. This is **not** a production PostgreSQL, production-host, owner-account or full-browser certification. No real research data has been migrated by this PR.
 
 ## Next engineering tasks
 
