@@ -1,8 +1,8 @@
 # RH-05.2 — Python Research Backend and Metadata APIs
 
 **Record date:** 2026-11-05  
-**Repository:** `Content-Catalyst-LLC/sustainable-catalyst-research`  
-**Review:** [Research PR #5](https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research/pull/5)  
+**Repository:** canonical public source `Content-Catalyst-LLC/sustainable-catalyst-research`; developed in the private Research repository  
+**Review:** Research PR #5 in the private Research repository (not public)  
 **Status:** Source and CI acceptance only. Not deployed on Contabo or connected to real upstream services.
 
 ## Purpose

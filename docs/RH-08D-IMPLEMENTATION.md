@@ -42,7 +42,7 @@ A visitor opens Research → Discover, searches “enhanced rock weathering agri
 - Documentation: [Draft PR #14](https://github.com/Content-Catalyst-LLC/documentation/pull/14)
 - Data: [Draft PR #3](https://github.com/Content-Catalyst-LLC/data/pull/3); all six provider flags disabled, no retrieved candidates
 - Handoffs: [Draft PR #3](https://github.com/Content-Catalyst-LLC/handoffs/pull/3)
-- Research: [Foundation PR #1](https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research/pull/1); [per-entry workspace PR #2](https://github.com/Content-Catalyst-LLC/sustainable-catalyst-research/pull/2)
+- Research: foundation PR #1 and per-entry workspace PR #2 in the private Research repository (not public)
 
 Implement RH-08D-01 on a *new branch based on* `feature/rh-02-entry-workspaces` so that Discover is correctly aware of the per-entry workspace implementation. The older `feature/rh-08d-discovery-foundation` was cut from foundation and should not be assumed to include RH-02 work; do not blind-merge.
 
