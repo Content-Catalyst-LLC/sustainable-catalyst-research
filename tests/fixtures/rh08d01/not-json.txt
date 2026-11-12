@@ -1,0 +1,1 @@
+<html>SYNTHETIC upstream error page</html>

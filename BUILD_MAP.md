@@ -20,6 +20,7 @@ This file intentionally contains only **public-safe product capabilities** and g
 | WordPress Research bridge | `wordpress/sc-research-bridge/` | Disabled by default; installable package built in CI |
 | Public source integrity gate | `scripts/check_public_source.py` | Manifest, renderer lock, secret scan, no links into private repositories |
 | Scientific Discovery contracts | `research-api/app/discovery.py` | Providers disabled until verified |
+| Discovery adapters (OpenAlex, Crossref) | `research-api/app/discovery_adapters/` | Typed, offline-tested; no network transport, nothing published |
 | Public Research frontend | `research-web/` | Under development |
 | Anonymous-only API bridge | `research-web/assets/research-workbench-bridge.js` | Disabled by default |
 | Isolated deployment examples | `infrastructure/` | Generic templates; no production secrets |

@@ -1,0 +1,198 @@
+{
+ "meta": {
+  "count": 9,
+  "page": 1,
+  "per_page": 25,
+  "note": "SYNTHETIC fixture, not OpenAlex data"
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/W9000001",
+   "doi": "https://doi.org/10.5555/SC-SYN-001",
+   "title": "SYNTHETIC Basalt weathering rates in field trials",
+   "display_name": "SYNTHETIC Basalt weathering rates in field trials",
+   "publication_year": 2024,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "A. Synthetic",
+      "orcid": "https://orcid.org/0000-0002-1825-0097"
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "https://example.org/synthetic/1",
+    "source": {
+     "display_name": "Synthetic Journal of Soil Studies"
+    }
+   },
+   "is_retracted": false
+  },
+  {
+   "id": "https://openalex.org/W9000002",
+   "doi": "doi:10.5555/sc-syn-002.",
+   "title": "SYNTHETIC Carbon accounting for mineral amendments",
+   "display_name": "SYNTHETIC Carbon accounting for mineral amendments",
+   "publication_year": 2023,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "C. Example",
+      "orcid": null
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "https://example.org/synthetic/2",
+    "source": {
+     "display_name": "Synthetic Review Letters"
+    }
+   },
+   "is_retracted": false
+  },
+  {
+   "id": "https://openalex.org/W9000003",
+   "doi": null,
+   "title": "SYNTHETIC Weathering model notes",
+   "display_name": "SYNTHETIC Weathering model notes",
+   "publication_year": 2022,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "B. Placeholder",
+      "orcid": null
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "https://example.org/synthetic/3",
+    "source": {
+     "display_name": "Synthetic Journal of Soil Studies"
+    }
+   },
+   "is_retracted": false
+  },
+  {
+   "id": "https://openalex.org/W9000004",
+   "doi": "https://doi.org/10.5555/sc-syn-001",
+   "title": "SYNTHETIC Basalt weathering rates in field trials",
+   "display_name": "SYNTHETIC Basalt weathering rates in field trials",
+   "publication_year": 2024,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "A. Synthetic",
+      "orcid": null
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "https://example.org/synthetic/4",
+    "source": {
+     "display_name": "Synthetic Soil Studies"
+    }
+   },
+   "is_retracted": false
+  },
+  {
+   "doi": "https://doi.org/10.5555/sc-syn-005",
+   "title": "SYNTHETIC record without a provider id"
+  },
+  {
+   "id": "https://openalex.org/W9000006",
+   "doi": "https://doi.org/10.5555/sc-syn-006",
+   "title": "SYNTHETIC Weathering model notes",
+   "display_name": "SYNTHETIC Weathering model notes",
+   "publication_year": 2022,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "B. Placeholder",
+      "orcid": null
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "https://example.org/synthetic/6",
+    "source": {
+     "display_name": "Synthetic Journal of Soil Studies"
+    }
+   },
+   "is_retracted": false
+  },
+  {
+   "id": "https://openalex.org/W9000007",
+   "doi": "https://doi.org/10.5555/sc-syn-007",
+   "title": "SYNTHETIC Retracted trial summary",
+   "display_name": "SYNTHETIC Retracted trial summary",
+   "publication_year": 2021,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "E. Fictional",
+      "orcid": null
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "http://insecure.example/7",
+    "source": {
+     "display_name": "Synthetic Letters"
+    }
+   },
+   "is_retracted": true
+  },
+  {
+   "id": "https://openalex.org/W9000008",
+   "doi": "https://doi.org/10.5555/sc-syn-008",
+   "title": null,
+   "display_name": null,
+   "publication_year": 2020,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "F. Invented",
+      "orcid": null
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "https://example.org/synthetic/8",
+    "source": {
+     "display_name": "Synthetic Journal of Soil Studies"
+    }
+   },
+   "is_retracted": false
+  },
+  {
+   "id": "https://openalex.org/W9000009",
+   "doi": "https://doi.org/11.1234/not-a-doi",
+   "title": "SYNTHETIC Record with an invalid DOI",
+   "display_name": "SYNTHETIC Record with an invalid DOI",
+   "publication_year": 2021,
+   "type": "article",
+   "authorships": [
+    {
+     "author": {
+      "display_name": "G. Madeup",
+      "orcid": null
+     }
+    }
+   ],
+   "primary_location": {
+    "landing_page_url": "https://example.org/synthetic/9",
+    "source": {
+     "display_name": "Synthetic Journal of Soil Studies"
+    }
+   },
+   "is_retracted": false
+  }
+ ]
+}
