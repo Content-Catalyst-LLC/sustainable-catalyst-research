@@ -1,37 +1,10 @@
 name: RH-PROD-06 WordPress Research Bridge package
 
 on:
+  # Required status check on main: it must report on every pull request, so there is no paths filter.
   push:
-    branches: [feature/research-wordpress-website]
-    paths:
-      - "wordpress/sc-research-bridge/**"
-      - "research-web/assets/research-workbench-bridge.js"
-      - "research-web/assets/research-workbench-bridge.css"
-      - "research-web/assets/research-navigation.js"
-      - "research-web/assets/research-figures.js"
-      - "research-web/assets/research-hub-figures.js"
-      - "tests/test_research_hub_figures.cjs"
-      - "tests/test_research_navigation.cjs"
-      - "scripts/build_wordpress_bridge.py"
-      - "tests/test_rhprod06_wordpress_package.py"
-      - "tests/php/**"
-      - "tests/test_workbench_bridge.cjs"
-      - ".github/workflows/rhprod06-wordpress-plugin.yml"
+    branches: [main]
   pull_request:
-    paths:
-      - "wordpress/sc-research-bridge/**"
-      - "research-web/assets/research-workbench-bridge.js"
-      - "research-web/assets/research-workbench-bridge.css"
-      - "research-web/assets/research-navigation.js"
-      - "research-web/assets/research-figures.js"
-      - "research-web/assets/research-hub-figures.js"
-      - "tests/test_research_hub_figures.cjs"
-      - "tests/test_research_navigation.cjs"
-      - "scripts/build_wordpress_bridge.py"
-      - "tests/test_rhprod06_wordpress_package.py"
-      - "tests/php/**"
-      - "tests/test_workbench_bridge.cjs"
-      - ".github/workflows/rhprod06-wordpress-plugin.yml"
   workflow_dispatch:
 
 permissions:
