@@ -148,7 +148,7 @@ released here". Lab never treats bundle review fields as approval.
   | `scripts/sc_fig03a_public_browser_acceptance.py`, withdrawn | 9/9 |
   | Lab Graph Studio render of the same bundle | Passed |
 
-  Evidence: Data `evidence/research/sc-fig-03a-governed-figures-20261111/`.
+  The acceptance evidence is kept in the access-controlled Data repository.
 
 Staging found two defects, both fixed here with tests:
 
@@ -157,6 +157,5 @@ Staging found two defects, both fixed here with tests:
 
 ## Public repository
 
-The public repository has no convergence or editorial modules yet (private PRs #29, #35 and #44), and
-this module depends on them. So no public export is made for SC-FIG-03A until that stack is merged
-and reviewed for public release. Public #1 keeps the SC-FIG-02B surface.
+Public source batch 1 (SC-REPO-03, 2026-11-12) exports this module together with the convergence and
+editorial modules it depends on, after review through the allowlisted export.

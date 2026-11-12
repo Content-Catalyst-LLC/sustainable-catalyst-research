@@ -34,6 +34,13 @@ PATTERNS = [
 ]
 
 
+# Public repository only (it carries SOURCE_MANIFEST.sha256): links into the access-controlled repositories.
+PUBLIC_ONLY_PATTERNS = [
+    (re.compile(r"(?i)github\.com/Content-Catalyst-LLC/(?:documentation|data|handoffs|sustainable-catalyst-research-private)\b"),
+     "link to an access-controlled repository"),
+]
+
+
 def tracked() -> list[str]:
     out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"], check=True, capture_output=True).stdout
     return sorted(p for p in out.decode().split("\0") if p)
@@ -73,7 +80,7 @@ def content_errors(files) -> list[str]:
             text = (ROOT / p).read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        for pattern, what in PATTERNS:
+        for pattern, what in PATTERNS + (PUBLIC_ONLY_PATTERNS if MANIFEST.exists() else []):
             if pattern.search(text) and (p, what) not in ALLOWED_FINDINGS:
                 errors.append(f"{p}: {what}")
     return errors
