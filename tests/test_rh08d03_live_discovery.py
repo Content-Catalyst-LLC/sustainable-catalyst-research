@@ -11,6 +11,7 @@ import logging
 import socket
 import ssl
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,10 @@ from app.main import app  # noqa: E402
 
 FIX = ROOT / "tests/fixtures/rh08d01"
 QUERY = "synthetic basalt weathering"
-CONTACT = "discovery-ops@example.org"
+CONTACT = "discovery-tests@synthetic-contact.sustainablecatalyst.com"
+KEY = "synthetic-openalex-key-0123456789"
+KEY_FILE = Path(tempfile.mkdtemp()) / "openalex-key"
+KEY_FILE.write_text(KEY + "\n")
 PUBLIC_V4 = "1.1.1.1"
 SEARCH = "/api/research/v1/discovery/search"
 OPENALEX, CROSSREF = (FIX / "openalex-works.json").read_bytes(), (FIX / "crossref-works.json").read_bytes()
@@ -127,6 +131,7 @@ def staging(monkeypatch):
     monkeypatch.setenv("RESEARCH_DISCOVERY_MODE", "staging")
     monkeypatch.setenv("RESEARCH_DISCOVERY_PROVIDERS", "openalex,crossref")
     monkeypatch.setenv("RESEARCH_DISCOVERY_CONTACT", CONTACT)
+    monkeypatch.setenv("RESEARCH_OPENALEX_API_KEY_FILE", str(KEY_FILE))
 
 
 @pytest.fixture
@@ -138,15 +143,13 @@ def wire(monkeypatch, staging):
         guard = live.ProviderGuard(policies or activation.POLICIES, clock=clock, day=lambda: clock.day)
         clock.day = "2026-11-12"
 
-        def factory(policy, timeout, total):
-            return HttpsTransport(user_agent=discovery.USER_AGENT, timeout=timeout, total_timeout=total,
-                                  max_bytes=policy.max_bytes, resolver=net.resolve, connector=net.connect, clock=clock)
-
         monkeypatch.setattr(discovery, "_GUARD", guard)
         monkeypatch.setattr(discovery, "_LIMITER", da.RateLimiter(rate_per_second=activation.RATE_PER_SECOND,
                                                                   burst=activation.BURST, clock=clock, sleep=clock.sleep))
         monkeypatch.setattr(discovery, "live_transport", lambda state: live.GuardedTransport(
-            guard, state.providers, factory, deadline_seconds=deadline, clock=clock))
+            guard, state.providers, live.https_factory(state.user_agent, openalex_key=state.openalex_key,
+                                                       resolver=net.resolve, connector=net.connect, clock=clock),
+            deadline_seconds=deadline, clock=clock))
         return net, clock, guard
     return install
 
@@ -162,7 +165,8 @@ def outcome(data, provider):
 # --- activation: disabled by default ------------------------------------------------------------------------
 
 BASE = {"RESEARCH_ENV": "staging", "RESEARCH_DISCOVERY_MODE": "staging",
-        "RESEARCH_DISCOVERY_PROVIDERS": "openalex,crossref", "RESEARCH_DISCOVERY_CONTACT": CONTACT}
+        "RESEARCH_DISCOVERY_PROVIDERS": "openalex,crossref", "RESEARCH_DISCOVERY_CONTACT": CONTACT,
+        "RESEARCH_OPENALEX_API_KEY_FILE": str(KEY_FILE)}
 
 
 @pytest.mark.parametrize("change, reason", [
@@ -177,7 +181,13 @@ BASE = {"RESEARCH_ENV": "staging", "RESEARCH_DISCOVERY_MODE": "staging",
     ({"RESEARCH_DISCOVERY_PROVIDERS": "openalex,arxiv"}, "unknown-provider"),
     ({"RESEARCH_DISCOVERY_CONTACT": None}, "contact-missing"),
     ({"RESEARCH_DISCOVERY_CONTACT": "not-an-address"}, "contact-invalid"),
-    ({"RESEARCH_DISCOVERY_CONTACT": "ops@example.org\r\nX-Injected: 1"}, "contact-invalid"),
+    ({"RESEARCH_DISCOVERY_CONTACT": "ops@sustainablecatalyst.com\r\nX-Injected: 1"}, "contact-invalid"),
+    ({"RESEARCH_DISCOVERY_CONTACT": "ops@example.org"}, "contact-reserved-domain"),
+    ({"RESEARCH_DISCOVERY_CONTACT": "ops@mail.example.com"}, "contact-reserved-domain"),
+    ({"RESEARCH_DISCOVERY_CONTACT": "ops@research.test"}, "contact-reserved-domain"),
+    ({"RESEARCH_DISCOVERY_CONTACT": "ops@host.localhost"}, "contact-reserved-domain"),
+    ({"RESEARCH_OPENALEX_API_KEY_FILE": None}, "openalex-key-missing"),
+    ({"RESEARCH_OPENALEX_API_KEY_FILE": "/nonexistent/openalex-key"}, "openalex-key-unreadable"),
 ])
 def test_activation_fails_closed(change, reason):
     env = {k: v for k, v in {**BASE, **change}.items() if v is not None}
@@ -190,7 +200,8 @@ def test_activation_defaults_to_disabled_and_production_is_a_code_constant():
     assert activation.PRODUCTION_DISCOVERY_AUTHORIZED is False
     state = activation.resolve({**BASE, "RESEARCH_DISCOVERY_PROVIDERS": " Crossref , openalex "})
     assert state.active and state.providers == ("openalex", "crossref") and state.contact == CONTACT
-    assert CONTACT not in repr(state)
+    assert state.openalex_key.reveal() == KEY
+    assert CONTACT not in repr(state) and KEY not in repr(state) and KEY not in str(state.openalex_key)
 
 
 def test_production_stays_refused_even_with_every_other_setting(monkeypatch, staging):
@@ -261,10 +272,15 @@ def test_requests_follow_the_provider_policy(wire):
         c = sent["connection"]
         assert sent["address"] == PUBLIC_V4 and sent["timeout"] <= policy.timeout_seconds
         assert c.method == "GET" and c.path.startswith("/works?") and c.closed
-        assert c.headers["User-Agent"] == discovery.USER_AGENT and c.headers["Accept-Encoding"] == "identity"
-        assert "mailto=discovery-ops%40example.org" in c.path
+        assert c.headers["User-Agent"] == activation.user_agent(CONTACT) and c.headers["Accept-Encoding"] == "identity"
+        assert "mailto:" + CONTACT in c.headers["User-Agent"] and activation.PROJECT_URL in c.headers["User-Agent"]
+        assert "mailto=" + CONTACT.replace("@", "%40") in c.path
         assert ("rows=25" if sent["host"] == "api.crossref.org" else "per-page=25") in c.path
-        assert not {"Cookie", "Authorization"} & set(c.headers)
+        assert "Cookie" not in c.headers and KEY not in c.path
+        if sent["host"] == "api.openalex.org":
+            assert c.headers["Authorization"] == "Bearer " + KEY
+        else:
+            assert "Authorization" not in c.headers
 
 
 def test_requests_are_spaced_by_the_rate_limiter(wire):
@@ -492,7 +508,7 @@ def test_the_search_text_is_never_logged(wire, caplog):
     wire({"api.openalex.org": [ok(OPENALEX)], "api.crossref.org": [ok(CROSSREF)]})
     with caplog.at_level(logging.DEBUG):
         search()
-    assert QUERY not in caplog.text and CONTACT not in caplog.text
+    assert QUERY not in caplog.text and CONTACT not in caplog.text and KEY not in caplog.text
 
 
 # --- separation: discovered metadata, Library-reviewed sources, Research evidence -------------------------
@@ -583,7 +599,7 @@ def test_acceptance_fails_when_discovery_is_off(monkeypatch):
     monkeypatch.delenv("RESEARCH_DISCOVERY_MODE", raising=False)
     report = acceptance.run_acceptance("http://127.0.0.1:8000/api/research/v1", fetch=through_app, sleep=lambda s: None)
     assert report["passed"] is False
-    assert report["checks"][0]["problems"] == ["discovery is not active in staging"]
+    assert report["checks"][0]["problems"] == ["discovery is not active in staging", "no contact address configured"]
 
 
 def test_acceptance_catches_a_response_that_breaks_the_separation():
@@ -602,3 +618,141 @@ def test_acceptance_catches_a_response_that_breaks_the_separation():
     for expected in ("missing Cache-Control: no-store", "search text echoed in the response",
                      "separation block missing or wrong", "not discovered-unreviewed", "provenance hash missing"):
         assert any(expected in p for p in problems), expected
+
+
+# --- OpenAlex API key and provider identification -------------------------------------------------------
+
+@pytest.mark.parametrize("content", ["", "short", "has spaces in it 0123456789", "x" * 129, "key;with\nnewline-0123456789"])
+def test_malformed_keys_disable_discovery(tmp_path, content):
+    path = tmp_path / "key"
+    path.write_text(content)
+    state = activation.resolve({**BASE, "RESEARCH_OPENALEX_API_KEY_FILE": str(path)})
+    assert (state.active, state.reason, state.openalex_key) == (False, "openalex-key-invalid", None)
+
+
+def test_the_key_is_read_only_from_a_file_not_an_environment_value():
+    env = {k: v for k, v in BASE.items() if k != "RESEARCH_OPENALEX_API_KEY_FILE"}
+    for name in ("RESEARCH_OPENALEX_API_KEY", "OPENALEX_API_KEY"):
+        assert activation.resolve({**env, name: KEY}).reason == "openalex-key-missing"
+    source = (ROOT / "research-api/app/discovery_adapters/activation.py").read_text()
+    assert source.count("env.get(OPENALEX_KEY_FILE_ENV") == 1 and "OPENALEX_API_KEY\"" not in source
+
+
+def test_crossref_alone_needs_no_openalex_key():
+    env = {k: v for k, v in BASE.items() if k != "RESEARCH_OPENALEX_API_KEY_FILE"}
+    state = activation.resolve({**env, "RESEARCH_DISCOVERY_PROVIDERS": "crossref"})
+    assert state.active and state.providers == ("crossref",) and state.openalex_key is None
+
+
+def test_the_key_never_reaches_responses_provenance_or_urls(wire):
+    net, _, _ = wire({"api.openalex.org": [ok(OPENALEX)], "api.crossref.org": [ok(CROSSREF)]})
+    response = search()
+    ready = client.get("/api/research/v1/discovery/readiness")
+    assert response.status_code == 200 and ready.json()["openalex_api_key_configured"] is True
+    assert ready.json()["contact_configured"] is True
+    for text in (response.text, ready.text, client.get("/api/research/v1/discovery/providers").text):
+        assert KEY not in text and CONTACT not in text
+    request = da.openalex.build_request(QUERY, rows=25, contact=CONTACT)
+    assert KEY not in request.key()  # the provenance request hash is over this, so it never covers the key
+    assert all(KEY not in s["connection"].path for s in net.sent)
+
+
+def test_a_bearer_token_is_bound_to_one_provider_host():
+    secret = activation.Secret(KEY)
+    for kwargs in ({"bearer": secret}, {"bearer_provider": "openalex"}, {"bearer": secret, "bearer_provider": "evil"}):
+        with pytest.raises(ValueError):
+            HttpsTransport(user_agent="x", **kwargs)
+    net = Network(Clock(), {"api.crossref.org": [ok(CROSSREF)]})
+    t = HttpsTransport(user_agent="x", bearer=secret, bearer_provider="openalex", resolver=net.resolve,
+                       connector=net.connect)
+    t.send(da.crossref.build_request(QUERY))
+    assert "Authorization" not in net.sent[0]["connection"].headers
+
+
+def test_transport_errors_never_carry_the_key(wire):
+    wire({"api.openalex.org": [ssl.SSLError("bad record " + KEY)], "api.crossref.org": [ok(CROSSREF)]})
+    data = search().json()
+    assert outcome(data, "openalex")["code"] == "tls-failure" and KEY not in json.dumps(data)
+
+
+def test_a_provider_signalling_its_budget_is_spent_is_held_until_reset(wire):
+    spent = FakeResponse(200, OPENALEX, {"Content-Type": "application/json", "X-RateLimit-Remaining": "0",
+                                         "X-RateLimit-Reset": "3600", "X-RateLimit-Credits-Used": "0.001"})
+    net, clock, _ = wire({"api.openalex.org": [spent], "api.crossref.org": [ok(CROSSREF)]})
+    assert outcome(search(provider="openalex").json(), "openalex")["status"] == "ok"
+    o = outcome(search(provider="openalex").json(), "openalex")
+    assert (o["status"], o["code"], o["attempts"]) == ("rate_limited", "provider-budget-exhausted", 0)
+    assert 3590 <= o["retry_after_seconds"] <= 3600  # less the rate-limiter spacing already waited
+    assert net.hosts().count("api.openalex.org") == 1
+    clock.now += 3601
+    net.routes["api.openalex.org"] = [ok(OPENALEX)]
+    assert outcome(search(provider="openalex").json(), "openalex")["status"] == "ok"
+
+
+def test_conservative_limits_sit_below_the_reviewed_provider_policies():
+    # Reviewed 2026-11-12: OpenAlex free key 30 req/s and $1/day at $0.001 per search (about 1,000 searches);
+    # Crossref polite pool 3 list req/s with concurrency 3. See docs/RH-08D-03-LIVE-DISCOVERY.md.
+    assert activation.RATE_PER_SECOND <= 1.0 and activation.MAX_CONCURRENT_SEARCHES <= 2
+    assert activation.POLICIES["openalex"].daily_request_budget * 0.001 < 1.0
+    assert activation.MAX_ATTEMPTS <= 2
+
+
+# --- provider preflight (read-only connectivity) ---------------------------------------------------------
+
+import discovery_provider_preflight as preflight  # noqa: E402
+
+
+class FakeTLSSocket:
+    def __init__(self, host):
+        self.host = host
+
+    def getpeercert(self):
+        return {"subjectAltName": (("DNS", self.host),), "issuer": ((("organizationName", "Synthetic CA"),),),
+                "notAfter": "Jan  1 00:00:00 2100 GMT"}
+
+    def version(self):
+        return "TLSv1.3"
+
+    def cipher(self):
+        return ("TLS_AES_256_GCM_SHA384", "TLSv1.3", 256)
+
+
+class PreflightConnection(FakeConnection):
+    def __init__(self, host, reply):
+        super().__init__(reply)
+        self.sock = FakeTLSSocket(host)
+
+
+def test_preflight_sends_one_bare_root_request_per_provider():
+    seen = []
+
+    def connector(host, address):
+        connection = PreflightConnection(host, FakeResponse(200, b'{"meta":{}}', {"Content-Type": "application/json",
+                                                                                    "X-RateLimit-Limit": "1"}))
+        seen.append((host, address, connection))
+        return connection
+
+    results = [preflight.check(p, h, resolver=lambda h: [PUBLIC_V4], connector=connector)
+               for p, h in preflight.HOSTS.items()]
+    assert all(r["ok"] for r in results)
+    assert results[0]["tls"]["version"] == "TLSv1.3" and results[0]["tls"]["san_matches_host"] is True
+    assert results[0]["http"]["headers"] == {"content-type": "application/json", "x-ratelimit-limit": "1"}
+    for host, address, c in seen:
+        assert (c.method, c.path) == ("GET", "/") and address == PUBLIC_V4
+        assert "Authorization" not in c.headers and "mailto" not in c.headers["User-Agent"] and c.closed
+
+
+@pytest.mark.parametrize("addresses, error", [(["10.1.2.3"], "non-public-address"), ([], "non-public-address")])
+def test_preflight_never_connects_to_non_public_answers(addresses, error):
+    result = preflight.check("openalex", "api.openalex.org", resolver=lambda h: addresses,
+                             connector=lambda h, a: pytest.fail("connected"))
+    assert (result["ok"], result["error"]) == (False, error)
+
+
+def test_preflight_reports_failures_without_raising():
+    def broken(host):
+        raise OSError("synthetic")
+    assert preflight.check("crossref", "api.crossref.org", resolver=broken)["error"] == "dns-failure: OSError"
+    result = preflight.check("crossref", "api.crossref.org", resolver=lambda h: [PUBLIC_V4],
+                             connector=lambda h, a: PreflightConnection(h, ConnectionResetError("x")))
+    assert result["ok"] is False and result["error"] == "connection-failure: ConnectionResetError"

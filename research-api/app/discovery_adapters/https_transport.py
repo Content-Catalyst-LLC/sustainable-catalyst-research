@@ -9,7 +9,9 @@ Each request is checked before any network activity:
 * the host name must resolve only to public addresses (no loopback, private, link-local, reserved or
   multicast), and the connection goes to the vetted address with TLS verified against the host name, so a
   DNS answer cannot be swapped between the check and the connect;
-* TLS 1.2 or later with certificate and host-name verification; no proxy, cookies or credentials;
+* TLS 1.2 or later with certificate and host-name verification; no proxy or cookies. The only credential is
+  an optional bearer token (the OpenAlex API key) bound to one provider's host, sent as a header so it never
+  appears in a URL, the request provenance or an error;
 * redirects are not followed, the body is capped and must arrive within ``total_timeout`` seconds, and only
   rate-limit and content-type headers are kept.
 """
@@ -25,8 +27,9 @@ from .transport import TransportError, TransportTimeout
 
 ALLOWED_HOSTS = {"openalex": "api.openalex.org", "crossref": "api.crossref.org"}
 ALLOWED_PATH = "/works"
-KEPT_HEADERS = {"content-type", "retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-interval",
-                "x-rate-limit-limit", "x-rate-limit-interval"}
+KEPT_HEADERS = {"content-type", "retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset",
+                "x-ratelimit-credits-used", "x-ratelimit-interval", "x-rate-limit-limit", "x-rate-limit-interval",
+                "x-rate-limit-type", "x-concurrency-limit", "x-api-pool"}
 MAX_BYTES = 2_000_000
 CHUNK = 65_536
 
@@ -62,12 +65,16 @@ class HttpsTransport:
     external = True
 
     def __init__(self, *, user_agent: str, timeout: float = 10.0, total_timeout: float | None = None,
-                 max_bytes: int = MAX_BYTES, resolver=_system_resolver, connector=_connect, clock=time.monotonic):
+                 max_bytes: int = MAX_BYTES, resolver=_system_resolver, connector=_connect, clock=time.monotonic,
+                 bearer=None, bearer_provider: str | None = None):
         total_timeout = 2 * timeout if total_timeout is None else total_timeout
         if not 0 < timeout <= 30 or not timeout <= total_timeout <= 60 or not 0 < max_bytes <= 10_000_000:
             raise ValueError("timeout must be in (0, 30] s, total_timeout in [timeout, 60] s and max_bytes in (0, 10 MB]")
         self.user_agent, self.timeout, self.total_timeout, self.max_bytes = user_agent, timeout, total_timeout, max_bytes
         self._resolve, self._connect, self._clock = resolver, connector, clock
+        if (bearer is None) != (bearer_provider is None) or (bearer_provider and bearer_provider not in ALLOWED_HOSTS):
+            raise ValueError("a bearer token must be bound to exactly one allowed provider")
+        self._bearer, self._bearer_provider = bearer, bearer_provider  # bearer: an activation.Secret
 
     def target(self, request: ProviderRequest) -> tuple[str, str]:
         """(host, path with query) for an allowed request; raises TransportError otherwise. No network."""
@@ -111,9 +118,11 @@ class HttpsTransport:
         address = self.vetted_address(host)
         connection = self._connect(host, address, self.timeout)
         try:
-            connection.request("GET", path, headers={
-                "Host": host, "User-Agent": self.user_agent, "Accept": "application/json",
-                "Accept-Encoding": "identity", "Connection": "close"})
+            headers = {"Host": host, "User-Agent": self.user_agent, "Accept": "application/json",
+                       "Accept-Encoding": "identity", "Connection": "close"}
+            if self._bearer is not None and request.provider == self._bearer_provider:
+                headers["Authorization"] = "Bearer " + self._bearer.reveal()
+            connection.request("GET", path, headers=headers)
             response = connection.getresponse()
             encoding = (response.getheader("Content-Encoding") or "identity").strip().lower()
             if encoding != "identity":

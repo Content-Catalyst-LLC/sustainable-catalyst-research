@@ -6,6 +6,7 @@ import json
 import socket
 import ssl
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -244,12 +245,18 @@ def test_production_discovery_is_a_reviewed_code_constant_not_configuration():
     assert "PRODUCTION_DISCOVERY_AUTHORIZED = os" not in source
 
 
+CONTACT = "discovery-tests@synthetic-contact.sustainablecatalyst.com"
+
+
 def gated(monkeypatch, transport):
     # RH-08D-03: an active staging configuration, with the transport replaced by an offline one.
+    key_file = Path(tempfile.mkdtemp()) / "openalex-key"
+    key_file.write_text("synthetic-openalex-key-0123456789\n")
     monkeypatch.setenv("RESEARCH_ENV", "staging")
     monkeypatch.setenv("RESEARCH_DISCOVERY_MODE", "staging")
     monkeypatch.setenv("RESEARCH_DISCOVERY_PROVIDERS", "openalex,crossref")
-    monkeypatch.setenv("RESEARCH_DISCOVERY_CONTACT", "discovery-ops@example.org")
+    monkeypatch.setenv("RESEARCH_DISCOVERY_CONTACT", CONTACT)
+    monkeypatch.setenv("RESEARCH_OPENALEX_API_KEY_FILE", str(key_file))
     monkeypatch.setattr(discovery, "live_transport", lambda state: transport)
     monkeypatch.setattr(discovery, "_LIMITER", da.RateLimiter(rate_per_second=10, clock=lambda: 0.0, sleep=lambda s: None))
 
@@ -258,8 +265,8 @@ def test_the_gated_path_returns_a_typed_unsaved_run(monkeypatch):
     def reply(name):
         return da.ProviderResponse(status=200, body=(FIX / name).read_bytes())
     gated(monkeypatch, da.FixtureTransport({
-        openalex.build_request(QUERY, rows=25, contact="discovery-ops@example.org").key(): reply("openalex-works.json"),
-        crossref.build_request(QUERY, rows=25, contact="discovery-ops@example.org").key(): reply("crossref-works.json")}))
+        openalex.build_request(QUERY, rows=25, contact=CONTACT).key(): reply("openalex-works.json"),
+        crossref.build_request(QUERY, rows=25, contact=CONTACT).key(): reply("crossref-works.json")}))
     response = client.post("/api/research/v1/discovery/search", json={"query": QUERY})
     assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
     data = response.json()
@@ -278,7 +285,7 @@ def test_the_gated_path_refuses_sources_without_adapters(monkeypatch):
 
 def test_the_gated_path_reports_provider_failures_without_candidates(monkeypatch):
     gated(monkeypatch, da.FixtureTransport({
-        openalex.build_request(QUERY, rows=25, contact="discovery-ops@example.org").key(): da.TransportTimeout("x")}))
+        openalex.build_request(QUERY, rows=25, contact=CONTACT).key(): da.TransportTimeout("x")}))
     data = client.post("/api/research/v1/discovery/search", json={"query": QUERY, "provider": "openalex"}).json()
     assert data["run"]["outcomes"][0]["status"] == "unavailable" and data["run"]["candidates"] == []
 

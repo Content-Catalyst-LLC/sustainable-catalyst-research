@@ -24,7 +24,6 @@ router = APIRouter(prefix="/api/research/v1/discovery", tags=["Discovery"])
 
 STAGE = "RH-08D-03"
 SEARCHABLE = {"all": ("openalex", "crossref"), "openalex": ("openalex",), "crossref": ("crossref",)}
-USER_AGENT = "SustainableCatalystResearch/0.3 (research discovery; metadata only)"
 # Shared by every request in the process, so visitors cannot multiply provider traffic.
 _LIMITER = RateLimiter(rate_per_second=discovery_activation.RATE_PER_SECOND, burst=discovery_activation.BURST)
 _RETRY = RetryPolicy(max_attempts=discovery_activation.MAX_ATTEMPTS, backoff_seconds=1.0,
@@ -87,6 +86,8 @@ def readiness():
         "reason": state.reason,
         "external_retrieval_enabled": state.active,
         "enabled_providers": list(state.providers),
+        "contact_configured": state.contact is not None,
+        "openalex_api_key_configured": state.openalex_key is not None,
         "production_discovery_authorized": discovery_activation.PRODUCTION_DISCOVERY_AUTHORIZED,
         "saved_searches_enabled": False,
         "article_private_context_enabled": False,
@@ -100,7 +101,7 @@ def readiness():
 
 def live_transport(state: discovery_activation.Activation) -> GuardedTransport:
     """The guarded HTTPS transport for one search. Only reached when activation is active."""
-    return GuardedTransport(_GUARD, state.providers, https_factory(USER_AGENT))
+    return GuardedTransport(_GUARD, state.providers, https_factory(state.user_agent, openalex_key=state.openalex_key))
 
 
 def search_response(request: DiscoverySearchRequest, transport, *, enabled=None, contact=None, limiter=None,

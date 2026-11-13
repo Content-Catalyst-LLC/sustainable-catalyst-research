@@ -49,6 +49,10 @@ def check_readiness(data: dict) -> list[str]:
     problems = []
     if data.get("status") != "active_staging" or data.get("external_retrieval_enabled") is not True:
         problems.append("discovery is not active in staging")
+    if data.get("contact_configured") is not True:
+        problems.append("no contact address configured")
+    if "openalex" in (data.get("enabled_providers") or []) and data.get("openalex_api_key_configured") is not True:
+        problems.append("OpenAlex enabled without an API key")
     for key in ("production_discovery_authorized", "saved_searches_enabled", "library_intake_enabled",
                 "publication_enabled", "research_evidence_promotion_enabled"):
         if data.get(key) is not False:
