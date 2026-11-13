@@ -138,7 +138,10 @@
           if (!res.ok) {
             if (res.status === 401) forget();
             var detail = data && data.detail;
-            throw failure(res.status, errorText(res.status, detail && typeof detail === "object" ? detail.message : detail));
+            var text = detail && typeof detail === "object" ? detail.message : detail;
+            var err = failure(res.status, errorText(res.status, text));
+            err.detail = typeof text === "string" ? text : "";
+            throw err;
           }
           return data;
         });

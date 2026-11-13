@@ -21,10 +21,10 @@ test("only chosen, pinned outputs of the chosen entry become article references"
   assert.deepEqual(consoleApi.referencesFor(nodes, "s", [nodes[0].id]).length, 1);
 });
 
-test("the figure request is the Notebook Desk coefficient figure and is marked synthetic and unreviewed", () => {
+test("the figure request is the Notebook Desk coefficient figure and is a modelled, unreviewed figure", () => {
   const req = consoleApi.figureRequest({title: "Wexford ERW notebook"}, "fit", "OLS fit");
   assert.equal(req.figureId, "wexford-erw-notebook-fit");
-  assert.equal(req.evidenceClass, "synthetic-demonstration");
+  assert.equal(req.evidenceClass, "modelled");
   assert.equal(req.uncertainty.kind, "ci95");
   assert.equal(consoleApi.slugify("  Ünïcode / Study 1 "), "n-code-study-1");
 });

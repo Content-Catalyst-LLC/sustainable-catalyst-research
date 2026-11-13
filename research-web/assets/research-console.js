@@ -40,7 +40,7 @@
       y: {field: "estimate", label: "Coefficient estimate", unit: "1"},
       uncertainty: {kind: "ci95", spreadField: "stdError", multiplier: 1.959964,
         statement: "Normal approximation: estimate ± 1.96 standard errors."},
-      evidenceClass: "synthetic-demonstration", caption: title, altText: "Model coefficients with 95% intervals.",
+      evidenceClass: "modelled", caption: title, altText: "Model coefficients with 95% intervals.",
       interpretation: title, limitations: ["Figure of a single verified notebook run; not reviewed."]};
   }
   function referencesFor(nodes, entry, chosen) {
@@ -61,11 +61,12 @@
         else if (k === "onclick") node.addEventListener("click", attrs[k]);
         else node.setAttribute(k, attrs[k]);
       }
-      for (var i = 2; i < arguments.length; i++) {
-        var c = arguments[i];
-        if (c === null || c === undefined) continue;
+      var add = function (c) {
+        if (c === null || c === undefined) return;
+        if (Array.isArray(c)) { c.forEach(add); return; }
         node.append(typeof c === "string" ? doc.createTextNode(c) : c);
-      }
+      };
+      for (var i = 2; i < arguments.length; i++) add(arguments[i]);
       return node;
     }
     function notice(text, bad) {
@@ -76,7 +77,9 @@
       if (button) button.disabled = true;
       notice("");
       return Promise.resolve().then(fn).catch(function (err) {
-        notice(err && err.message ? err.message : "The request could not be completed.", true);
+        // Research explains refusals (missing reproduction, foreign object, unverified reference); show that reason.
+        var why = err && err.detail && err.status !== 401 ? err.detail : "";
+        notice(why || (err && err.message) || "The request could not be completed.", true);
       }).then(function () { if (button) button.disabled = false; });
     }
     function rs(method, path, body) { return state.client.request(method, path, body); }
@@ -85,7 +88,9 @@
         return res.json().catch(function () { return {}; }).then(function (data) {
           if (!res.ok) {
             var d = data && (data.detail || data.message);
-            throw new Error("Workspace: " + (d && typeof d === "object" ? (d.message || d.code) : d || ("HTTP " + res.status)));
+            if (Array.isArray(d)) d = d.map(function (x) { return (x && x.msg) || String(x); }).join("; ");
+            else if (d && typeof d === "object") d = d.message || d.code;
+            throw new Error("Workspace refused " + path.split("?")[0] + ": " + (d || ("HTTP " + res.status)));
           }
           return data;
         });
@@ -174,7 +179,8 @@
               schema: "sc-workspace-execution-run-output/1.0", outputId: "figure-" + pkg.figureId, role: "figure",
               label: title, mediaType: FIGURE_MEDIA, sha256: pkg.bundleSha256, bytes: enc.encode(bundle.text).length
             }).then(function () {
-              return pkg.files.map(function (f) { return {sha256: f.sha256, contentBase64: b64(enc.encode(f.text))}; });
+              // The bundle names its view by the canonical-JSON hash; Research re-checks bytes against either form.
+              return pkg.files.map(function (f) { return {sha256: f.canonicalSha256 || f.sha256, contentBase64: b64(enc.encode(f.text))}; });
             });
           });
         }
