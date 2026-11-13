@@ -165,12 +165,12 @@ with Session(engine) as s:
     saved=intake.DiscoverySavedCandidate(owner_scope='synthetic-a',dedup_key='doi:'+hx('10.0000/syn-'+suffix),
         title_key=hx('t'+suffix),candidate_id='cand-'+hx('c'+suffix)[:24],doi='10.0000/syn-'+suffix,
         title='Synthetic intake candidate',candidate_metadata={'title':'Synthetic intake candidate'},
-        metadata_sha256=hx('m'),possible_duplicate_of=[],status='saved-unreviewed',saved_by='synthetic-a')
+        metadata_sha256=hx('m'),status='saved-unreviewed',saved_by='synthetic-a')
     s.add(saved); s.flush()
     s.add(intake.DiscoveryCandidateSource(saved_id=saved.id,provider='crossref',provider_record_id='crossref:syn',
         retrieved_at='2026-11-13T00:00:00+00:00',query_sha256=hx('q'),request_sha256=hx('req'),
         response_sha256=hx('resp'),record_sha256=hx('rec'),adapter_version='synthetic',metadata_sha256=hx('m'),
-        saved_by='synthetic-a'))
+        candidate_metadata={'title':'Synthetic intake candidate'},saved_by='synthetic-a'))
     s.add(intake.DiscoveryLibraryProposal(saved_id=saved.id,owner_scope='synthetic-a',proposal={'status':'draft-not-submitted'},
         proposal_sha256=hx('p'),acknowledged_issues=[],status='awaiting-library-endpoint',sent=False,
         proposed_by='synthetic-a'))
@@ -182,7 +182,7 @@ try:
     with Session(engine) as s:
         s.add(intake.DiscoverySavedCandidate(owner_scope='synthetic-a',dedup_key='doi:'+hx('10.0000/syn-'+suffix),
             title_key='x',candidate_id='cand-'+'0'*24,title='Duplicate',candidate_metadata={},metadata_sha256='0'*64,
-            possible_duplicate_of=[],status='saved-unreviewed',saved_by='synthetic-a'))
+            status='saved-unreviewed',saved_by='synthetic-a'))
         s.commit()
     raise AssertionError('per-owner identity duplicate accepted')
 except DBAPIError:

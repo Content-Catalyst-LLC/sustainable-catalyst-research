@@ -34,7 +34,10 @@ from dataclasses import dataclass
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 from fastapi.responses import JSONResponse
+import json
+
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import convergence as cv
@@ -44,8 +47,8 @@ from .discovery_intake_store import (  # noqa: F401 (re-exported)
     DiscoveryAssociation, DiscoveryCandidateSource, DiscoveryIntakeEvent, DiscoveryLibraryProposal,
     DiscoverySavedCandidate,
 )
-from .discovery_adapters.library_intake import draft_proposal
-from .discovery_adapters.models import Candidate, CandidateSource
+from .discovery_adapters.library_intake import blocking_issues, draft_proposal
+from .discovery_adapters.models import Candidate, CandidateSource, FieldConflict
 
 STAGE = "RH-08D-04"
 GATE_ENV = "RESEARCH_DISCOVERY_INTAKE"
@@ -56,6 +59,8 @@ GENESIS = "0" * 64
 SAVED, DISMISSED = "saved-unreviewed", "dismissed"
 PROPOSAL_STATUS = "awaiting-library-endpoint"
 RELATION = "related-candidate"
+# Fields whose disagreement between provider records a Library reviewer must see.
+REVIEW_FIELDS = ("doi", "title", "publication_year", "venue", "work_type", "retracted")
 HANDLE_TTL_SECONDS = 900
 MAX_HANDLES = 32
 SEPARATION = {"classification": "discovered-unreviewed", "review_status": "unreviewed", "library_reviewed": False,
@@ -202,13 +207,38 @@ def _sources(session: Session, row: DiscoverySavedCandidate) -> list[DiscoveryCa
 
 
 def stored_candidate(session: Session, row: DiscoverySavedCandidate) -> Candidate:
-    """The saved metadata with every provider record now behind it."""
+    """The first saved metadata with every provider record now behind it."""
     sources = [CandidateSource(provider=s.provider, provider_record_id=s.provider_record_id,
                                retrieved_at=s.retrieved_at, query_sha256=s.query_sha256,
                                request_sha256=s.request_sha256, response_sha256=s.response_sha256,
                                record_sha256=s.record_sha256, adapter_version=s.adapter_version)
                for s in _sources(session, row)]
     return Candidate(**row.candidate_metadata, sources=sources)
+
+
+def _twins(session: Session, row: DiscoverySavedCandidate) -> list[DiscoverySavedCandidate]:
+    """The owner's other saved candidates with the same normalised title and year: possible duplicates, both ways."""
+    return list(session.scalars(select(DiscoverySavedCandidate).where(
+        DiscoverySavedCandidate.owner_scope == row.owner_scope, DiscoverySavedCandidate.title_key == row.title_key,
+        DiscoverySavedCandidate.id != row.id).order_by(DiscoverySavedCandidate.created_at, DiscoverySavedCandidate.id)))
+
+
+def review_candidate(session: Session, row: DiscoverySavedCandidate) -> Candidate:
+    """What a Library reviewer must see: the first saved metadata plus everything later provider records disagree on.
+
+    A retraction reported by any record counts. Fields that differ between records become conflicts keyed by record,
+    and the owner's same-title candidates become possible duplicates, so none of it is hidden by deduplication."""
+    base = stored_candidate(session, row)
+    snapshots = [(f"{s.provider_record_id}@{s.retrieved_at}", s.candidate_metadata) for s in _sources(session, row)]
+    conflicts = list(base.conflicts)
+    for field in REVIEW_FIELDS:
+        values = {key: json.dumps(meta.get(field), ensure_ascii=False) for key, meta in snapshots}
+        if len(set(values.values())) > 1 and all(c.field != field for c in conflicts):
+            conflicts.append(FieldConflict(field=field, values=values))
+    retracted = True if any(meta.get("retracted") is True for _, meta in snapshots) else base.retracted
+    duplicates = tuple(dict.fromkeys(base.possible_duplicate_of + tuple(t.candidate_id for t in _twins(session, row))))
+    return base.model_copy(update={"conflicts": tuple(conflicts), "retracted": retracted,
+                                   "possible_duplicate_of": duplicates})
 
 
 def save_candidate(session: Session, actor: ed.Actor, candidate: Candidate) -> dict:
@@ -220,13 +250,10 @@ def save_candidate(session: Session, actor: ed.Actor, candidate: Candidate) -> d
                                                                 DiscoverySavedCandidate.dedup_key == key))
     created, restored = row is None, False
     if created:
-        tkey = title_key(candidate)
-        twins = session.scalars(select(DiscoverySavedCandidate.id).where(
-            DiscoverySavedCandidate.owner_scope == actor.owner, DiscoverySavedCandidate.title_key == tkey))
-        row = DiscoverySavedCandidate(owner_scope=actor.owner, dedup_key=key, title_key=tkey,
+        row = DiscoverySavedCandidate(owner_scope=actor.owner, dedup_key=key, title_key=title_key(candidate),
                                       candidate_id=candidate.candidate_id, doi=candidate.doi,
                                       title=candidate.title, candidate_metadata=metadata, metadata_sha256=digest,
-                                      possible_duplicate_of=sorted(twins), status=SAVED, saved_by=actor.scope)
+                                      status=SAVED, saved_by=actor.scope)
         session.add(row)
         session.flush()
     elif row.status == DISMISSED:
@@ -237,8 +264,8 @@ def save_candidate(session: Session, actor: ed.Actor, candidate: Candidate) -> d
         if source.record_sha256 in known:
             continue
         known.add(source.record_sha256)
-        session.add(DiscoveryCandidateSource(saved_id=row.id, metadata_sha256=digest, saved_by=actor.scope,
-                                             **source.model_dump(mode="json")))
+        session.add(DiscoveryCandidateSource(saved_id=row.id, metadata_sha256=digest, candidate_metadata=metadata,
+                                             saved_by=actor.scope, **source.model_dump(mode="json")))
         added += 1
     session.flush()
     _event(session, actor, "candidate-saved" if created else "candidate-deduplicated", row,
@@ -303,7 +330,7 @@ def propose_to_library(session: Session, actor: ed.Actor, saved_id: str, acknowl
         raise ValueError("A dismissed candidate cannot be proposed")
     if session.scalar(select(DiscoveryLibraryProposal.id).where(DiscoveryLibraryProposal.saved_id == row.id)):
         raise ValueError("This candidate has already been proposed for Library review")
-    proposal = draft_proposal(stored_candidate(session, row))
+    proposal = draft_proposal(review_candidate(session, row))
     issues = sorted(proposal.blocking_issues)
     if not isinstance(acknowledged_issues, (list, tuple)) or sorted(set(map(str, acknowledged_issues))) != issues:
         raise ValueError(f"Acknowledge exactly the blocking issues a Library reviewer must resolve: {issues}")
@@ -323,10 +350,13 @@ def saved_view(session: Session, row: DiscoverySavedCandidate) -> dict:
         DiscoveryAssociation, DiscoveryAssociation.entry_id == ws.ResearchEntry.id).where(
         DiscoveryAssociation.saved_id == row.id, DiscoveryAssociation.active.is_(True)).order_by(ws.ResearchEntry.slug))
     proposal = session.scalar(select(DiscoveryLibraryProposal).where(DiscoveryLibraryProposal.saved_id == row.id))
+    review = review_candidate(session, row)
     return {
         "id": row.id, "candidateId": row.candidate_id, "status": row.status, **SEPARATION,
         "doi": row.doi, "title": row.title, "metadata": row.candidate_metadata, "metadataSha256": row.metadata_sha256,
-        "possibleDuplicateOf": row.possible_duplicate_of, "savedBy": row.saved_by,
+        "possibleDuplicateOf": [t.id for t in _twins(session, row)], "savedBy": row.saved_by,
+        "review": {"blockingIssues": list(blocking_issues(review)), "retractionReported": review.retracted is True,
+                   "conflictingFields": sorted({c.field for c in review.conflicts})},
         "sources": [{"provider": s.provider, "providerRecordId": s.provider_record_id, "retrievedAt": s.retrieved_at,
                      "querySha256": s.query_sha256, "requestSha256": s.request_sha256,
                      "responseSha256": s.response_sha256, "recordSha256": s.record_sha256,
@@ -368,6 +398,13 @@ def intake_actor(authorization: str | None = Header(default=None),
     return ed.editorial_actor(owner, x_sc_actor_scope, x_sc_editor_attestation)
 
 
+def _do(session: Session, fn, *args):
+    try:
+        return ed._do(session, fn, *args)
+    except IntegrityError as exc:  # a concurrent save of the same candidate or audit sequence; ed._do rolled back
+        raise HTTPException(status_code=409, detail="A concurrent change was made; retry") from exc
+
+
 def _reply(data) -> JSONResponse:
     return JSONResponse(data, headers={"Cache-Control": "no-store"})
 
@@ -390,7 +427,7 @@ def list_route(actor: ed.Actor = Depends(intake_actor), session: Session = Depen
 def save_route(body: dict = Body(...), actor: ed.Actor = Depends(intake_actor),
                session: Session = Depends(ws.get_session)):
     candidate = cv._call(HANDLES.candidate, str(body.get("run_handle") or ""), str(body.get("candidate_id") or ""))
-    return _reply(ed._do(session, save_candidate, actor, candidate))
+    return _reply(_do(session, save_candidate, actor, candidate))
 
 
 @router.get("/candidates/{saved_id}")
@@ -400,22 +437,22 @@ def view_route(saved_id: str, actor: ed.Actor = Depends(intake_actor), session: 
 
 @router.post("/candidates/{saved_id}/dismiss")
 def dismiss_route(saved_id: str, actor: ed.Actor = Depends(intake_actor), session: Session = Depends(ws.get_session)):
-    return _reply(ed._do(session, dismiss, actor, saved_id))
+    return _reply(_do(session, dismiss, actor, saved_id))
 
 
 @router.post("/candidates/{saved_id}/associations/{entry_slug}")
 def associate_route(saved_id: str, entry_slug: str, actor: ed.Actor = Depends(intake_actor),
                     session: Session = Depends(ws.get_session)):
-    return _reply(ed._do(session, associate, actor, saved_id, entry_slug))
+    return _reply(_do(session, associate, actor, saved_id, entry_slug))
 
 
 @router.post("/candidates/{saved_id}/associations/{entry_slug}/remove")
 def dissociate_route(saved_id: str, entry_slug: str, actor: ed.Actor = Depends(intake_actor),
                      session: Session = Depends(ws.get_session)):
-    return _reply(ed._do(session, dissociate, actor, saved_id, entry_slug))
+    return _reply(_do(session, dissociate, actor, saved_id, entry_slug))
 
 
 @router.post("/candidates/{saved_id}/library-proposal")
 def propose_route(saved_id: str, body: dict = Body(...), actor: ed.Actor = Depends(intake_actor),
                   session: Session = Depends(ws.get_session)):
-    return _reply(ed._do(session, propose_to_library, actor, saved_id, body.get("acknowledged_blocking_issues")))
+    return _reply(_do(session, propose_to_library, actor, saved_id, body.get("acknowledged_blocking_issues")))

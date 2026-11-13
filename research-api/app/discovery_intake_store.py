@@ -30,7 +30,6 @@ class DiscoverySavedCandidate(ws.Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     candidate_metadata: Mapped[dict] = mapped_column("metadata", JSON, nullable=False)
     metadata_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    possible_duplicate_of: Mapped[list] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     saved_by: Mapped[str] = mapped_column(String(160), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ws.now_utc, nullable=False)
@@ -52,6 +51,9 @@ class DiscoveryCandidateSource(ws.Base):
     record_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     adapter_version: Mapped[str] = mapped_column(String(32), nullable=False)
     metadata_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    # The candidate metadata exactly as it arrived with this record, so every metadata_sha256 can be checked and
+    # later disagreements (a retraction, a corrected title) reach the Library reviewer.
+    candidate_metadata: Mapped[dict] = mapped_column("metadata", JSON, nullable=False)
     saved_by: Mapped[str] = mapped_column(String(160), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=ws.now_utc, nullable=False)
     __table_args__ = (UniqueConstraint("saved_id", "record_sha256", name="uq_research_discovery_source_record"),)
