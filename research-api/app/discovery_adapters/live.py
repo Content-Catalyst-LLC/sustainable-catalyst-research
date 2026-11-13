@@ -75,7 +75,7 @@ class ProviderGuard:
             return {p: {"circuit_open": self._open_until.get(p, 0.0) > now} for p in self.policies}
 
 
-def https_factory(user_agent: str, *, openalex_key=None, **transport_options):
+def https_factory(user_agent: str, *, openalex_key=None, proxy=None, **transport_options):
     """Builds one HttpsTransport per request. The OpenAlex key, if any, is bound to the OpenAlex host only.
     ``transport_options`` (resolver, connector, clock) exist for offline tests."""
     def build(policy: ProviderPolicy, timeout: float, total_timeout: float):
@@ -83,7 +83,8 @@ def https_factory(user_agent: str, *, openalex_key=None, **transport_options):
         bearer = openalex_key if policy.provider == "openalex" else None
         return HttpsTransport(user_agent=user_agent, timeout=timeout, total_timeout=total_timeout,
                               max_bytes=policy.max_bytes, bearer=bearer,
-                              bearer_provider="openalex" if bearer is not None else None, **transport_options)
+                              bearer_provider="openalex" if bearer is not None else None, proxy=proxy,
+                              **transport_options)
     return build
 
 

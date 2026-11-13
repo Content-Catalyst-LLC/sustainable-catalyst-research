@@ -16,6 +16,10 @@ Live discovery is **disabled by default**. It runs only when every condition bel
   to ``api.openalex.org`` as an ``Authorization: Bearer`` header (never in a URL, so never in provenance), and
   is never logged, echoed or included in ``repr``.
 
+Optionally, ``RESEARCH_DISCOVERY_EGRESS_PROXY=http://<service>:<port>`` routes provider traffic through the
+staging egress proxy (``app.discovery_egress_proxy``); the value must be a single-label internal service name,
+so it cannot point outside the deployment.
+
 The limits are deliberately conservative and sit below the providers' published limits as reviewed on
 2026-11-12 (docs/RH-08D-03-LIVE-DISCOVERY.md); activation re-checks them against the providers' current terms.
 """
@@ -33,6 +37,7 @@ RESERVED_DOMAINS = re.compile(r"(^|\.)(example\.(com|net|org)|example|test|inval
 PROJECT_URL = "https://sustainablecatalyst.com"
 OPENALEX_KEY_FILE_ENV = "RESEARCH_OPENALEX_API_KEY_FILE"
 OPENALEX_KEY = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+EGRESS_PROXY = re.compile(r"^http://([a-z0-9][a-z0-9-]{0,62}):([0-9]{2,5})$")
 
 # Shared by every provider: one request per second per provider, at most two attempts per search and
 # at most 3 s waiting between them; a whole search must finish its requests within RUN_DEADLINE_SECONDS.
@@ -106,6 +111,7 @@ class Activation:
     providers: tuple[str, ...] = ()
     contact: str | None = field(default=None, repr=False)
     openalex_key: Secret | None = field(default=None, repr=False)
+    egress_proxy: tuple[str, int] | None = None
 
     @property
     def user_agent(self) -> str | None:
@@ -141,6 +147,13 @@ def resolve(env=None) -> Activation:
         return off("contact-invalid")
     if RESERVED_DOMAINS.search(contact.rsplit("@", 1)[1].lower()):
         return off("contact-reserved-domain")
+    proxy = None
+    raw_proxy = env.get("RESEARCH_DISCOVERY_EGRESS_PROXY", "").strip()
+    if raw_proxy:
+        match = EGRESS_PROXY.fullmatch(raw_proxy)
+        if not match or not 1 <= int(match.group(2)) <= 65535:
+            return off("egress-proxy-invalid")
+        proxy = (match.group(1), int(match.group(2)))
     providers = tuple(p for p in LIVE_PROVIDERS if p in names)
     key = None
     if "openalex" in providers:
@@ -148,4 +161,4 @@ def resolve(env=None) -> Activation:
         if problem:
             return off(problem)
     return Activation(mode=mode, environment=environment, active=True, reason="active", providers=providers,
-                      contact=contact, openalex_key=key)
+                      contact=contact, openalex_key=key, egress_proxy=proxy)
