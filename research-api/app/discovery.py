@@ -8,6 +8,10 @@ It is disabled by default: ``activation.resolve()`` enables it only for an expli
 configured staging deployment, and production stays refused by a code constant
 (``PRODUCTION_DISCOVERY_AUTHORIZED``). Results are discovered metadata only: nothing
 is saved, submitted to the Library, treated as Research evidence or published.
+
+RH-08D-04 adds governed intake (``discovery_intake``), separately gated and disabled by default: with it enabled a
+search also returns a short-lived ``run_handle`` so an authorised owner or editor can save a candidate from this
+server's own results. Searches themselves still store nothing.
 """
 import threading
 
@@ -16,11 +20,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ConfigDict
 
 from .discovery_adapters import RateLimiter, RetryPolicy, discover
+from . import discovery_intake
 from .discovery_adapters import activation as discovery_activation
 from .discovery_adapters.library_intake import LIBRARY_INTAKE_ENABLED, blocking_issues
 from .discovery_adapters.live import GuardedTransport, ProviderGuard, https_factory
 
 router = APIRouter(prefix="/api/research/v1/discovery", tags=["Discovery"])
+router.include_router(discovery_intake.router)
 
 STAGE = "RH-08D-03"
 SEARCHABLE = {"all": ("openalex", "crossref"), "openalex": ("openalex",), "crossref": ("crossref",)}
@@ -78,6 +84,7 @@ def list_providers():
 @router.get("/readiness")
 def readiness():
     state = current_activation()
+    intake = discovery_intake.intake_state()
     return {
         "schema": "sc-research-discovery-readiness/1.0",
         "stage": STAGE,
@@ -95,6 +102,7 @@ def readiness():
         "research_evidence_promotion_enabled": False,
         "transport_prepared": True,
         "library_intake_enabled": LIBRARY_INTAKE_ENABLED,
+        "candidate_intake": {"enabled": intake.enabled, "reason": intake.reason},
         "publication_enabled": False,
         "providers": _GUARD.status() if state.active else {},
     }
@@ -107,8 +115,11 @@ def live_transport(state: discovery_activation.Activation) -> GuardedTransport:
 
 
 def search_response(request: DiscoverySearchRequest, transport, *, enabled=None, contact=None, limiter=None,
-                    now=None) -> dict:
-    """One discovery run as the public response. Nothing is stored; the search text appears only as a hash."""
+                    now=None, handles=None) -> dict:
+    """One discovery run as the public response. Nothing is stored; the search text appears only as a hash.
+
+    With ``handles`` (discovery intake enabled) the run's candidates are also held in memory for a short time, so an
+    authorised user can save one from the server's own copy."""
     providers = SEARCHABLE[request.provider]
     clock = {"now": now} if now else {}
     run = discover(request.query, providers=providers,
@@ -124,6 +135,8 @@ def search_response(request: DiscoverySearchRequest, transport, *, enabled=None,
             "enabled": LIBRARY_INTAKE_ENABLED,
             "blocking_issues": {c.candidate_id: list(blocking_issues(c)) for c in run.candidates},
         },
+        "intake": {"enabled": handles is not None,
+                   "run_handle": handles.put(run.candidates) if handles is not None and run.candidates else None},
         "saved": False,
         "publishable": False,
     }
@@ -154,7 +167,9 @@ def search(request: DiscoverySearchRequest):
         _unavailable("DISCOVERY_BUSY", "Discovery is handling other searches. Try again shortly.", status_code=429,
                      headers={"Retry-After": "5"})
     try:
-        data = search_response(request, live_transport(state), enabled=enabled, contact=state.contact)
+        handles = discovery_intake.HANDLES if discovery_intake.intake_state().enabled else None
+        data = search_response(request, live_transport(state), enabled=enabled, contact=state.contact,
+                               handles=handles)
     finally:
         _SLOTS.release()
     return JSONResponse(data, headers={"Cache-Control": "no-store"})

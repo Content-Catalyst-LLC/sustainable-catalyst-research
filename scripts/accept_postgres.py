@@ -158,3 +158,36 @@ for sql in ["UPDATE research_editorial_events SET action='tamper' WHERE seq=(SEL
     except DBAPIError:
         pass
 print('PASS SC-ED-01 editorial revisions, stewardship and audit chain are append-only')
+from app import discovery_intake as intake
+from app.discovery_adapters.models import Candidate, CandidateSource
+import hashlib
+hx=lambda t: hashlib.sha256(t.encode()).hexdigest()
+src=CandidateSource(provider='crossref',provider_record_id='crossref:syn-'+suffix,retrieved_at='2026-11-13T00:00:00+00:00',
+    query_sha256=hx('q'),request_sha256=hx('req'),response_sha256=hx('resp'),record_sha256=hx('rec-'+suffix))
+cand=Candidate(candidate_id='cand-'+hx('c'+suffix)[:24],doi='10.0000/syn-'+suffix,title='Synthetic intake candidate',
+    publication_year=2026,retracted=False,sources=(src,))
+other_actor=editorial.Actor('synthetic-b','owner','synthetic-b','*')
+with Session(engine) as s:
+    saved=intake.save_candidate(s,actor,cand)
+    assert intake.save_candidate(s,actor,cand)['id']==saved['id']
+    intake.associate(s,actor,saved['id'],'ed-'+suffix)
+    intake.propose_to_library(s,actor,saved['id'],[])
+    s.commit()
+    try:
+        intake.dismiss(s,other_actor,saved['id'])
+        raise AssertionError('cross-owner intake bypass')
+    except LookupError:
+        s.rollback()
+    assert intake.verify_chain(s)['valid']
+    assert intake.saved_view(s,s.get(intake.DiscoverySavedCandidate,saved['id']))['libraryProposal']['sent'] is False
+for sql in ["UPDATE research_discovery_candidate_sources SET record_sha256=:z WHERE saved_id=:id",
+            'DELETE FROM research_discovery_candidate_sources WHERE saved_id=:id',
+            "UPDATE research_discovery_library_proposals SET sent=true WHERE saved_id=:id",
+            "UPDATE research_discovery_intake_events SET action='tamper' WHERE saved_id=:id"]:
+    try:
+        with engine.begin() as c:
+            c.execute(text(sql),{'id':saved['id'],'z':h('0')})
+        raise AssertionError('intake record mutation accepted: '+sql[:40])
+    except DBAPIError:
+        pass
+print('PASS RH-08D-04 intake: per-owner dedup, owner isolation; provenance, proposals and audit are append-only')
