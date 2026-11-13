@@ -18,6 +18,8 @@ recorded Library review proposal:
   transmitted, because Library submission is not authorised (``LIBRARY_SUBMISSION_AUTHORIZED``) and
   ``library_intake.submit`` still refuses.
 - Every change appends to a hash-chained audit log that holds ids and hashes only, never search text.
+- **One damaged record never fails the owner's list.** A saved candidate whose stored metadata cannot be read is shown
+  with the ``metadata-invalid`` blocking issue and cannot be proposed; the others are unaffected (RH-08D-05 F1).
 
 The gate: ``RESEARCH_DISCOVERY_INTAKE=staging`` with ``RESEARCH_ENV`` staging or development, and Research write
 identity enabled. Production is refused by ``PRODUCTION_INTAKE_AUTHORIZED``.
@@ -32,9 +34,10 @@ import time
 import unicodedata
 from dataclasses import dataclass
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 import json
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -58,6 +61,8 @@ EVENT_SCHEMA = "sc-research-discovery-intake-event/1.0"
 GENESIS = "0" * 64
 SAVED, DISMISSED = "saved-unreviewed", "dismissed"
 PROPOSAL_STATUS = "awaiting-library-endpoint"
+METADATA_INVALID = "metadata-invalid"
+log = logging.getLogger("discovery-intake")
 RELATION = "related-candidate"
 # Fields whose disagreement between provider records a Library reviewer must see.
 REVIEW_FIELDS = ("doi", "title", "publication_year", "venue", "work_type", "retracted")
@@ -241,6 +246,18 @@ def review_candidate(session: Session, row: DiscoverySavedCandidate) -> Candidat
                                    "possible_duplicate_of": duplicates})
 
 
+def readable_review(session: Session, row: DiscoverySavedCandidate) -> Candidate | None:
+    """``review_candidate``, or None when the row's stored metadata cannot be read back as a candidate.
+
+    Only this record is affected: the caller shows it with the ``metadata-invalid`` blocking issue. The log names the
+    record id only, never its metadata."""
+    try:
+        return review_candidate(session, row)
+    except (TypeError, ValueError):  # pydantic's ValidationError is a ValueError
+        log.warning("saved candidate %s has unreadable stored metadata", row.id)
+        return None
+
+
 def save_candidate(session: Session, actor: ed.Actor, candidate: Candidate) -> dict:
     """Save a server-held discovery candidate for the actor's owner, deduplicating against what they already hold."""
     metadata = candidate_metadata(candidate)
@@ -330,7 +347,10 @@ def propose_to_library(session: Session, actor: ed.Actor, saved_id: str, acknowl
         raise ValueError("A dismissed candidate cannot be proposed")
     if session.scalar(select(DiscoveryLibraryProposal.id).where(DiscoveryLibraryProposal.saved_id == row.id)):
         raise ValueError("This candidate has already been proposed for Library review")
-    proposal = draft_proposal(review_candidate(session, row))
+    review = readable_review(session, row)
+    if review is None:
+        raise ValueError("This saved source's stored metadata cannot be read, so it cannot be proposed")
+    proposal = draft_proposal(review)
     issues = sorted(proposal.blocking_issues)
     if not isinstance(acknowledged_issues, (list, tuple)) or sorted(set(map(str, acknowledged_issues))) != issues:
         raise ValueError(f"Acknowledge exactly the blocking issues a Library reviewer must resolve: {issues}")
@@ -350,13 +370,19 @@ def saved_view(session: Session, row: DiscoverySavedCandidate) -> dict:
         DiscoveryAssociation, DiscoveryAssociation.entry_id == ws.ResearchEntry.id).where(
         DiscoveryAssociation.saved_id == row.id, DiscoveryAssociation.active.is_(True)).order_by(ws.ResearchEntry.slug))
     proposal = session.scalar(select(DiscoveryLibraryProposal).where(DiscoveryLibraryProposal.saved_id == row.id))
-    review = review_candidate(session, row)
+    review = readable_review(session, row)
+    if review is None:
+        retracted = any(isinstance(s.candidate_metadata, dict) and s.candidate_metadata.get("retracted") is True
+                        for s in _sources(session, row))
+        summary = {"blockingIssues": [METADATA_INVALID], "retractionReported": retracted, "conflictingFields": []}
+    else:
+        summary = {"blockingIssues": list(blocking_issues(review)), "retractionReported": review.retracted is True,
+                   "conflictingFields": sorted({c.field for c in review.conflicts})}
     return {
         "id": row.id, "candidateId": row.candidate_id, "status": row.status, **SEPARATION,
         "doi": row.doi, "title": row.title, "metadata": row.candidate_metadata, "metadataSha256": row.metadata_sha256,
         "possibleDuplicateOf": [t.id for t in _twins(session, row)], "savedBy": row.saved_by,
-        "review": {"blockingIssues": list(blocking_issues(review)), "retractionReported": review.retracted is True,
-                   "conflictingFields": sorted({c.field for c in review.conflicts})},
+        "review": summary,
         "sources": [{"provider": s.provider, "providerRecordId": s.provider_record_id, "retrievedAt": s.retrieved_at,
                      "querySha256": s.query_sha256, "requestSha256": s.request_sha256,
                      "responseSha256": s.response_sha256, "recordSha256": s.record_sha256,
@@ -387,7 +413,7 @@ def _closed(state: IntakeState):
         "message": "Discovery intake has not been enabled here."})
 
 
-def intake_actor(authorization: str | None = Header(default=None),
+def intake_actor(request: Request, authorization: str | None = Header(default=None),
                  x_sc_owner_scope: str | None = Header(default=None),
                  x_sc_actor_scope: str | None = Header(default=None),
                  x_sc_editor_attestation: str | None = Header(default=None)) -> ed.Actor:
@@ -395,7 +421,7 @@ def intake_actor(authorization: str | None = Header(default=None),
     if not state.enabled:
         _closed(state)
     owner = cv.internal_principal(authorization, x_sc_owner_scope)
-    return ed.editorial_actor(owner, x_sc_actor_scope, x_sc_editor_attestation)
+    return ed.editorial_actor(request, owner, x_sc_actor_scope, x_sc_editor_attestation)
 
 
 def _do(session: Session, fn, *args):

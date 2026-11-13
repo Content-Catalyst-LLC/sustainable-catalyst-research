@@ -29,8 +29,11 @@ def signed_record(subject, dimension, owner=OWNER, **kw):
     return _signed_record(subject, dimension, owner=owner, **kw)
 
 
-def attestation(grantee="workspace-user:ed", owner=OWNER, project="proj-1", role="editor", minutes=30, key=None):
-    now = datetime.now(timezone.utc)
+def attestation(grantee="workspace-user:ed", owner=OWNER, project="proj-1", role="editor", minutes=30, key=None,
+                issued_ago=0.0):
+    """``minutes`` is the lifetime from issue; ``issued_ago`` backdates the issue (minutes), as for an attestation
+    obtained before a grant was revoked."""
+    now = datetime.now(timezone.utc) - timedelta(minutes=issued_ago)
     body = {"schema": ed.ATTESTATION_SCHEMA, "issuer": wi.ISSUER, "audience": wi.AUDIENCE, "grantId": "rag_e",
             "ownerScope": owner, "grantee": grantee, "role": role, "projectId": project, "authentication": "test",
             "issuedAt": now.isoformat(), "expiresAt": (now + timedelta(minutes=minutes)).isoformat()}
@@ -102,6 +105,34 @@ def test_editor_needs_a_valid_workspace_attestation():
             ed.resolve_actor(OWNER, "workspace-user:ed", bad, key=PUB)
     with pytest.raises(ValueError, match="signature"):
         ed.resolve_actor(OWNER, "workspace-user:ed", attestation(key=OTHER), key=PUB)
+
+
+def test_attestation_times_are_checked_and_recorded():
+    editor = ed.resolve_actor(OWNER, "workspace-user:ed", attestation(issued_ago=2), key=PUB)
+    assert 110 <= (datetime.now(timezone.utc) - editor.attested_at).total_seconds() <= 130
+    assert editor == ed.Actor("workspace-user:ed", "editor", OWNER, "proj-1")  # the issue time is not identity
+    for bad in (attestation(issued_ago=-5), attestation(minutes=24 * 60)):  # future-dated; longer than Workspace's TTL
+        with pytest.raises(PermissionError, match="future or valid for too long"):
+            ed.resolve_actor(OWNER, "workspace-user:ed", bad, key=PUB)
+    body = {k: v for k, v in attestation().items() if k != "signature"}
+    for issued in (None, "2026-11-13T00:00:00"):  # missing; no timezone
+        undated = sign(ed.ATTESTATION_SCHEMA, {**body, "issuedAt": issued})
+        with pytest.raises(PermissionError, match="no valid issue time"):
+            ed.resolve_actor(OWNER, "workspace-user:ed", undated, key=PUB)
+
+
+def test_editor_writes_need_an_attestation_inside_the_write_window():
+    """F2: Workspace refuses a revoked grant a new attestation, so a revoked editor stops writing within the window."""
+    window = ed.EDITOR_WRITE_WINDOW_SECONDS
+    assert 0 < window <= 300
+    fresh = ed.resolve_actor(OWNER, "workspace-user:ed", attestation(), key=PUB)
+    ed.require_fresh_for_write(fresh)
+    late = fresh.attested_at + timedelta(seconds=window + 1)
+    with pytest.raises(PermissionError, match="request a new one from Workspace"):
+        ed.require_fresh_for_write(fresh, now=late)
+    ed.require_fresh_for_write(OWNER_ACTOR, now=late)  # the owner's own credential is not an attestation
+    with pytest.raises(PermissionError):  # an editor built without an issue time never writes
+        ed.require_fresh_for_write(ed.Actor("workspace-user:ed", "editor", OWNER, "proj-1"))
 
 
 def test_editor_scope_is_the_granted_workspace_project(session, world):
@@ -451,6 +482,12 @@ def test_http_editorial_routes(monkeypatch, tmp_path):
     audit = client.get("/api/research/v1/editorial/audit?article=syn-article", headers=owner).json()
     assert audit["chain"]["valid"] and [e["action"] for e in audit["events"]][-1] == "revision-created"
     assert client.get("/api/research/v1/editorial/integrity", headers=owner).json()["consistent"] is True
+    # F2: an attestation obtained before revocation still reads, but no longer writes, once past the window
+    stale = base64.urlsafe_b64encode(json.dumps(attestation(issued_ago=6, minutes=60)).encode()).decode().rstrip("=")
+    late = {**editor, "X-SC-Editor-Attestation": stale}
+    assert client.get("/api/research/v1/editorial/articles/syn-article", headers=late).status_code == 200
+    r = client.post("/api/research/v1/editorial/articles/syn-article/revisions", headers=late, json={**body, "baseRevision": 2})
+    assert r.status_code == 403 and "request a new one" in r.text
 
 
 def test_private_console_is_not_served_by_the_public_reader(monkeypatch, tmp_path):

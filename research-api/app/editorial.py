@@ -6,6 +6,9 @@ that cite notebook-derived outputs, figures, model results, study packages and c
 * Ownership stays with Workspace. The acting person is the owner (the owner scope the caller
   authenticated) or an editor holding a Workspace-signed ``editor`` role attestation for that
   owner's project. Research keeps no separate membership list.
+* Research cannot see a Workspace revocation, so an editor *write* needs an attestation issued in the last
+  ``EDITOR_WRITE_WINDOW_SECONDS``: a revoked editor, who cannot obtain a new one, stops writing within that window
+  (RH-08D-05 F2). Reads accept the attestation until it expires. Signed revocation notices are SC-UP-01 work.
 * Every article revision is immutable, hash-identified, and registered as a ``research-article``
   object in Research's existing object registry with its own provenance, so the existing
   convergence approval contract (four dimensions bound to ``subject_ref``) applies unchanged.
@@ -29,12 +32,12 @@ from __future__ import annotations
 import base64
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -50,6 +53,10 @@ REVISION_SCHEMA = "sc-research-editorial-revision/1.0"
 EDITORIAL_PROVENANCE_SCHEMA = "sc-research-editorial-provenance/1.0"
 EVENT_SCHEMA = "sc-research-editorial-event/1.0"
 ATTESTATION_SCHEMA = "sc-workspace-research-role-attestation/1.0"
+EDITOR_WRITE_WINDOW_SECONDS = 300  # how long after issue an editor attestation may be used to write (F2)
+ATTESTATION_MAX_LIFETIME_SECONDS = 3600  # Workspace ATTESTATION_TTL_SECONDS; a longer-lived attestation is refused
+CLOCK_SKEW_SECONDS = 60
+READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 AREA_DIMENSION = "area-publication"
 AREA_ACTION = "research_area_publication"
 REFERENCE_ROLES = {
@@ -154,6 +161,7 @@ class Actor:
     role: str  # owner | editor
     owner: str
     project_ref: str  # Workspace project the editor grant covers ("*" = all of the owner's projects)
+    attested_at: datetime | None = field(default=None, compare=False)  # editors: when Workspace issued the attestation
 
 
 def resolve_actor(owner: str, actor_scope: str = "", attestation: Any = None, key=None) -> Actor:
@@ -168,12 +176,28 @@ def resolve_actor(owner: str, actor_scope: str = "", attestation: Any = None, ke
     if (body.get("ownerScope"), body.get("grantee"), body.get("role")) != (owner, actor_scope, "editor"):
         raise PermissionError("The editor attestation is for another owner, person or role")
     try:
+        issued = datetime.fromisoformat(str(body.get("issuedAt")))
         expires = datetime.fromisoformat(str(body.get("expiresAt")))
-    except ValueError as exc:
-        raise PermissionError("The editor attestation has no valid expiry") from exc
+        lifetime = (expires - issued).total_seconds()
+        ahead = (issued - _now()).total_seconds()
+    except (TypeError, ValueError) as exc:  # unparseable, or a date without a timezone
+        raise PermissionError("The editor attestation has no valid issue time or expiry") from exc
+    if ahead > CLOCK_SKEW_SECONDS or lifetime > ATTESTATION_MAX_LIFETIME_SECONDS + CLOCK_SKEW_SECONDS:
+        raise PermissionError("The editor attestation is dated in the future or valid for too long")
     if expires <= _now():
         raise PermissionError("The editor attestation has expired; request a new one from Workspace")
-    return Actor(actor_scope, "editor", owner, str(body.get("projectId") or ""))
+    return Actor(actor_scope, "editor", owner, str(body.get("projectId") or ""), issued)
+
+
+def require_fresh_for_write(actor: Actor, now: datetime | None = None) -> None:
+    """An editor writes only with an attestation issued in the last ``EDITOR_WRITE_WINDOW_SECONDS`` (F2).
+
+    Workspace issues no attestation for a revoked grant, so this bounds how long a revoked editor can keep writing."""
+    if actor.role != "editor":
+        return
+    if actor.attested_at is None or ((now or _now()) - actor.attested_at).total_seconds() > EDITOR_WRITE_WINDOW_SECONDS:
+        raise PermissionError(f"Editor changes need an attestation issued in the last "
+                              f"{EDITOR_WRITE_WINDOW_SECONDS // 60} minutes; request a new one from Workspace")
 
 
 def workspace_ref(project_id: str) -> str:
@@ -877,6 +901,7 @@ def public_tombstone(session: Session, slug: str) -> dict | None:
 
 
 def editorial_actor(
+    request: Request,
     owner: str = Depends(cv.internal_principal),
     x_sc_actor_scope: str | None = Header(default=None),
     x_sc_editor_attestation: str | None = Header(default=None),
@@ -887,7 +912,10 @@ def editorial_actor(
             attestation = json.loads(base64.urlsafe_b64decode(x_sc_editor_attestation + "=" * (-len(x_sc_editor_attestation) % 4)))
         except (ValueError, json.JSONDecodeError) as exc:
             raise HTTPException(status_code=400, detail="X-SC-Editor-Attestation must be base64url JSON") from exc
-    return cv._call(resolve_actor, owner, (x_sc_actor_scope or "").strip()[:160], attestation)
+    actor = cv._call(resolve_actor, owner, (x_sc_actor_scope or "").strip()[:160], attestation)
+    if request.method not in READ_METHODS:
+        cv._call(require_fresh_for_write, actor)
+    return actor
 
 
 def _commit(session: Session, fn, *args, **kwargs):
