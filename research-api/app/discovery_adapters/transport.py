@@ -5,7 +5,7 @@ from .models import ProviderRequest, ProviderResponse
 # reported as the generic ``transport-error`` so no exception text reaches a response.
 TRANSPORT_CODES = frozenset({"request-not-allowed", "dns-failure", "non-public-address", "tls-failure",
                              "connection-failure", "protocol-error", "unexpected-content-encoding",
-                             "response-too-large"})
+                             "response-too-large", "egress-refused"})
 
 
 class ProviderDisabled(RuntimeError):
