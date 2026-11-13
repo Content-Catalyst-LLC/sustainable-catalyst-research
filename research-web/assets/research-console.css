@@ -1,0 +1,30 @@
+/* SC-SCI-02 Research Console */
+.console{padding:28px 5% 60px;max-width:1280px;margin:0 auto}
+.console-who{display:flex;gap:12px;align-items:center;font-size:13px;color:#4f666f}
+.console-notice{padding:12px 15px;background:#e5efec;border-left:3px solid #24736e;font-size:14px}.console-bad{background:#fbeaec;border-left-color:#b12e42}
+.console-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #d7e3e2;padding:8px 0;margin-bottom:18px}
+.console-tabs a{font-size:13px;font-weight:750;text-decoration:none;padding:9px 13px;border-radius:3px}.console-tabs a:hover,.console-tabs a:focus-visible{background:#e5f0ef}
+.console-panel{background:#fff;border:1px solid #d8e2e0;border-top:3px solid #b33e50;padding:22px;margin-bottom:18px;scroll-margin-top:16px}
+.console-panel h2{margin:0 0 10px;font-size:22px;letter-spacing:-.02em}.console-panel h3{font-size:17px;margin:14px 0 6px}
+.console-fine{font-size:13px;color:#5a6f76;line-height:1.55}
+.console-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.console-row label,.console-block{display:grid;gap:6px;font-size:13px;font-weight:700;flex:1;min-width:200px}
+.console-block{margin:10px 0}
+.console input,.console select,.console textarea{font:inherit;padding:8px;border:1px solid #aabfbc;border-radius:3px;background:#fff;color:#18313b;width:100%}
+.console button,.console-button{font:inherit;font-weight:700;background:#b12e42;color:#fff;border:0;border-radius:3px;padding:9px 15px;cursor:pointer;text-decoration:none;display:inline-block}
+.console button:disabled{opacity:.5;cursor:default}.console button:focus-visible,.console-button:focus-visible{outline:3px solid #ed9ca5;outline-offset:2px}
+.console .console-small{padding:5px 9px;font-size:12px;margin:2px}
+.console .console-link,.console-link{background:none;color:#1d6466;padding:0;text-decoration:underline;border:0;cursor:pointer;font:inherit}
+.console-table{width:100%;border-collapse:collapse;font-size:13px}.console-table th,.console-table td{text-align:left;padding:6px;border-bottom:1px solid #e3eaea;vertical-align:top}
+.console-result{margin-top:12px;font-size:14px}
+.console-graph{overflow-x:auto;border:1px solid #e0e8e7;background:#fbfdfc;padding:8px}.console-graph svg{min-width:600px;width:100%;height:auto;font:12px system-ui}
+.console-graph-kind{font-weight:800;fill:#3c5a61;text-transform:uppercase;font-size:11px}
+.console-graph-edge{stroke:#9db3b1;stroke-width:1.2}
+.console-graph-node rect{fill:#fff;stroke:#5b7d80}.console-graph-node text{fill:#18313b}.console-graph-node{cursor:pointer}
+.console-graph-node:focus rect,.console-graph-node:hover rect{stroke:#b12e42;stroke-width:2}
+.console-graph-node.state-executed-verified rect{stroke:#24736e;stroke-width:1.6}
+.console-facts{display:grid;grid-template-columns:minmax(150px,max-content) 1fr;gap:4px 14px;font-size:13px}.console-facts dt{font-weight:700}.console-facts dd{margin:0;word-break:break-all}
+.console-object pre{max-height:360px;overflow:auto;background:#f4f7f6;padding:10px;font-size:12px}
+.console-refs{border:1px solid #d8e2e0;padding:10px;margin:10px 0}.console-check{display:block;font-size:13px;margin:4px 0}.console-check input{width:auto}
+.console-actions{display:flex;gap:10px;flex-wrap:wrap}
+.console-figure{margin-top:10px}
+@media(max-width:700px){.console{padding:16px}.console-facts{grid-template-columns:1fr}}

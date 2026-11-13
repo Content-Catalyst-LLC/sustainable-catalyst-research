@@ -46,6 +46,7 @@ from . import convergence as cv
 from . import figure_releases as fr
 from . import object_registry as md
 from . import workspaces as ws
+from . import user_sessions as us
 
 PREFIX = "/api/research/v1"
 router = APIRouter(prefix=PREFIX, tags=["SC-ED-01 Research editorial"])
@@ -902,17 +903,21 @@ def public_tombstone(session: Session, slug: str) -> dict | None:
 
 def editorial_actor(
     request: Request,
-    owner: str = Depends(cv.internal_principal),
+    authorization: str | None = Header(default=None),
+    x_sc_owner_scope: str | None = Header(default=None),
     x_sc_actor_scope: str | None = Header(default=None),
     x_sc_editor_attestation: str | None = Header(default=None),
 ) -> Actor:
+    """The owner and acting person: from a signed Sustainable Catalyst session (SC-UP-01) where enabled, otherwise from
+    the staging service credential."""
+    owner, actor_scope = us.principal(authorization, x_sc_owner_scope, x_sc_actor_scope)
     attestation = None
     if x_sc_editor_attestation:
         try:
             attestation = json.loads(base64.urlsafe_b64decode(x_sc_editor_attestation + "=" * (-len(x_sc_editor_attestation) % 4)))
         except (ValueError, json.JSONDecodeError) as exc:
             raise HTTPException(status_code=400, detail="X-SC-Editor-Attestation must be base64url JSON") from exc
-    actor = cv._call(resolve_actor, owner, (x_sc_actor_scope or "").strip()[:160], attestation)
+    actor = cv._call(resolve_actor, owner, actor_scope, attestation)
     if request.method not in READ_METHODS:
         cv._call(require_fresh_for_write, actor)
     return actor
@@ -937,7 +942,8 @@ def _do(session: Session, fn, *args, **kwargs):
 
 @router.get("/editorial/status")
 def editorial_status():
-    return {"schema": "sc-research-editorial-status/1.0", "build": "SC-ED-01", "privateWritesEnabled": cv.writes_enabled(),
+    return {"schema": "sc-research-editorial-status/1.0", "build": "SC-ED-01", "privateWritesEnabled": cv.writes_enabled() or us.session_state().enabled,
+            "identity": us.public_status(),
             "approvalRecords": cv.WS_APPROVAL_RECORD_SCHEMA, "editorAttestation": ATTESTATION_SCHEMA,
             "referenceRoles": sorted(REFERENCE_ROLES), "approvalDimensions": sorted(cv.APPROVAL_ACTIONS),
             "areaApproval": AREA_ACTION, "automaticPublication": False}

@@ -1,5 +1,6 @@
 "use strict";
-// RH-08D-05: Discover ↔ governed intake. Offline, with a minimal fake DOM and a recording fake fetch.
+// RH-08D-05 / SC-UP-01: Discover ↔ governed intake with Sustainable Catalyst sessions. Offline, with a minimal fake DOM
+// and a recording fake fetch standing in for both Research and Workspace.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -33,8 +34,11 @@ const byTag = (node, tag) => all(node, n => n.tagName === tag.toUpperCase());
 const buttonNamed = (node, text) => byTag(node, "button").find(b => b.textContent === text);
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-const CREDENTIAL = "synthetic-staging-credential"; // a fixed test value, not a secret
-const OWNER = "workspace:owner:synthetic";
+const WS = "http://127.0.0.1:18965"; // a loopback Workspace, as in local staging
+const IDENTITY = {mode: "workspace-session", workspaceUrl: WS};
+const OWNER = "workspace-user:owner-synthetic";
+const OTHER_OWNER = "workspace-user:owner-b-synthetic";
+const GRANT = "rag_" + "e".repeat(32);
 const ID_A = "11111111-1111-4111-8111-111111111111";
 const ID_B = "22222222-2222-4222-8222-222222222222";
 const HANDLE = "run-AAAAAAAAAAAAAAAAAAAAAAAA";
@@ -43,7 +47,7 @@ function fakeFetch(routes) {
   const calls = [];
   const fn = (url, init = {}) => {
     calls.push({url, init});
-    const key = (init.method || "GET") + " " + url.replace("/api/research/v1", "");
+    const key = (init.method || "GET") + " " + url.replace("/api/research/v1", "").replace(WS, "WS");
     const hit = Object.keys(routes).find(k => key === k || (k.endsWith("*") && key.startsWith(k.slice(0, -1))));
     const [status, body] = hit ? routes[hit](init) : [404, {detail: "Not found"}];
     return Promise.resolve({ok: status < 400, status, json: () => Promise.resolve(body)});
@@ -51,6 +55,14 @@ function fakeFetch(routes) {
   fn.calls = calls;
   return fn;
 }
+function session(subject = OWNER, seconds = 300) {
+  const now = Date.now();
+  return {schema: "sc-workspace-research-session/1.0", issuer: "sustainable-catalyst-workspace", audience: "sc-research",
+    subject, authentication: "sc-identity-oidc-session", issuedAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + seconds * 1000).toISOString(), signature: {alg: "Ed25519", keyId: "k", value: "sig"}};
+}
+const decode = header => JSON.parse(Buffer.from(header.replace(/^SC-Workspace /, ""), "base64url").toString());
+const settle = async () => { for (let i = 0; i < 12; i++) await tick(); };
 
 function saved(overrides = {}) {
   return {id: ID_A, candidateId: "cand-" + "a".repeat(24), status: "saved-unreviewed", title: "Synthetic weathering study",
@@ -66,56 +78,120 @@ function controller(owner = true, log = []) {
     associate: record("associate"), dissociate: record("dissociate"), propose: record("propose"), log};
 }
 
-test("the client sends session credentials only as headers, never with cookies or caching", async () => {
-  const f = fakeFetch({"GET /discovery/intake/candidates": () => [200, {items: []}]});
-  const client = intake.createClient(f);
-  assert.throws(() => client.setCredentials({token: "", owner: OWNER}), /staging credential/);
-  client.setCredentials({token: " " + CREDENTIAL + " ", owner: OWNER,
-    actor: "workspace:editor:synthetic", attestation: '{"grantee": "workspace:editor:synthetic"}'});
-  await client.list();
-  const {url, init} = f.calls[0];
-  assert.equal(url, "/api/research/v1/discovery/intake/candidates");
-  assert.equal(init.credentials, "omit");
-  assert.equal(init.cache, "no-store");
-  assert.equal(init.headers.Authorization, "Bearer " + CREDENTIAL);
-  assert.equal(init.headers["X-SC-Owner-Scope"], OWNER);
-  assert.equal(init.headers["X-SC-Actor-Scope"], "workspace:editor:synthetic");
-  assert.equal(Buffer.from(init.headers["X-SC-Editor-Attestation"], "base64url").toString(),
-    '{"grantee":"workspace:editor:synthetic"}');
-  assert.ok(!url.includes(CREDENTIAL) && init.body === undefined);
-  assert.equal(client.isOwner(), false);
-  client.clear();
+test("Research calls carry only the signed Workspace session: no service credential, cookie or chosen owner", async () => {
+  const f = fakeFetch({"POST WS/v1/research-access/session": () => [200, session()],
+                       "GET /discovery/intake/candidates": () => [200, {items: []}]});
+  const client = intake.createClient(f, undefined, IDENTITY);
   assert.equal(client.signedIn(), false);
-  await client.list().catch(() => {});
-  assert.equal(f.calls[1].init.headers.Authorization, undefined);
+  assert.equal((await client.signIn()).subject, OWNER);
+  await client.list();
+  const [ws, research] = f.calls;
+  assert.equal(ws.url, WS + "/v1/research-access/session");
+  assert.equal(ws.init.credentials, "include");  // the Workspace cookie goes only to Workspace
+  assert.equal(research.url, "/api/research/v1/discovery/intake/candidates");
+  assert.equal(research.init.credentials, "omit");
+  assert.equal(research.init.cache, "no-store");
+  assert.equal(decode(research.init.headers.Authorization).subject, OWNER);
+  assert.ok(!/^Bearer/.test(research.init.headers.Authorization));
+  assert.equal(research.init.headers["X-SC-Owner-Scope"], undefined);
+  assert.equal(research.init.headers["X-SC-Actor-Scope"], undefined);
+  assert.equal(client.isOwner(), true);
+  await client.list();
+  assert.equal(f.calls.filter(c => c.url.startsWith(WS)).length, 1, "a fresh session is reused, not re-fetched");
+});
+
+test("a session close to expiry is renewed, and a signed-out person makes no Research call", async () => {
+  let issued = 0;
+  const f = fakeFetch({"POST WS/v1/research-access/session": () => [200, session(OWNER, ++issued === 1 ? 10 : 300)],
+                       "GET /discovery/intake/candidates": () => [200, {items: []}]});
+  const client = intake.createClient(f, undefined, IDENTITY);
+  await client.signIn();
+  await client.list();
+  assert.equal(issued, 2);
+  const out = fakeFetch({"POST WS/v1/research-access/session": () => [401, {detail: "Valid Workspace identity required."}]});
+  const anonymous = intake.createClient(out, undefined, IDENTITY);
+  assert.equal(await anonymous.signIn(), null);
+  await assert.rejects(anonymous.list(), err => err.status === 401 && /Sign in again/.test(err.message));
+  assert.equal(out.calls.every(c => c.url.startsWith(WS)), true);
+});
+
+test("an editor acts for an owner only with that owner's fresh Workspace attestation", async () => {
+  const attestation = {schema: "sc-workspace-research-role-attestation/1.0", grantee: "workspace-user:ed", ownerScope: OTHER_OWNER};
+  const f = fakeFetch({
+    "POST WS/v1/research-access/session": () => [200, session("workspace-user:ed")],
+    "GET WS/v1/research-approvals/grants": () => [200, {items: [
+      {grantId: GRANT, role: "editor", grantee: "workspace-user:ed", ownerScope: OTHER_OWNER, projectId: "proj-1", revokedAt: null},
+      {grantId: "rag_" + "f".repeat(32), role: "editor", grantee: "workspace-user:ed", ownerScope: OWNER, projectId: "*",
+        revokedAt: "2026-11-13T00:00:00Z"},
+      {grantId: "rag_" + "0".repeat(32), role: "editor", grantee: "workspace-user:someone-else", ownerScope: OWNER, projectId: "*"},
+      {grantId: "../../x", role: "editor", grantee: "workspace-user:ed", ownerScope: OWNER, projectId: "*"}]}],
+    ["POST WS/v1/research-approvals/grants/" + GRANT + "/attestation"]: () => [200, attestation],
+    "GET /discovery/intake/candidates": () => [200, {items: []}]
+  });
+  const client = intake.createClient(f, undefined, IDENTITY);
+  await client.signIn();
+  const grants = await client.editorGrants();
+  assert.deepEqual(grants.map(g => g.grantId), [GRANT]);
+  assert.throws(() => client.actFor({grantId: "../../x"}), /editor grant/);
+  client.actFor(grants[0]);
+  assert.equal(client.isOwner(), false);
+  await client.list();
+  await client.list();
+  const research = f.calls.filter(c => c.url.startsWith("/api"));
+  assert.equal(research[0].init.headers["X-SC-Owner-Scope"], OTHER_OWNER);
+  assert.deepEqual(JSON.parse(Buffer.from(research[0].init.headers["X-SC-Editor-Attestation"], "base64url")), attestation);
+  assert.equal(f.calls.filter(c => c.url.endsWith("/attestation")).length, 1, "reused within the write window");
+  client.actFor(null);
+  await client.list();
+  assert.equal(f.calls.at(-1).init.headers["X-SC-Owner-Scope"], undefined);
+
+  const revoked = fakeFetch({"POST WS/v1/research-access/session": () => [200, session("workspace-user:ed")],
+    ["POST WS/v1/research-approvals/grants/" + GRANT + "/attestation"]: () => [404, {detail: "Active editor grant not found."}]});
+  const late = intake.createClient(revoked, undefined, IDENTITY);
+  await late.signIn();
+  late.actFor(grants[0]);
+  await assert.rejects(late.list(), /no longer active/);
+  assert.equal(revoked.calls.some(c => c.url.startsWith("/api")), false);
 });
 
 test("saved ids and article slugs are validated before any request is made", () => {
   const f = fakeFetch({});
-  const client = intake.createClient(f);
-  client.setCredentials({token: CREDENTIAL, owner: OWNER});
+  const client = intake.createClient(f, undefined, IDENTITY);
   assert.throws(() => client.dismiss("../../editorial/articles"), /saved-source id/);
   assert.throws(() => client.associate(ID_A, "x/../y"), /article identifier/);
   assert.equal(f.calls.length, 0);
-  client.associate(ID_A, "soil-carbon").catch(() => {});
-  assert.equal(f.calls[0].url, "/api/research/v1/discovery/intake/candidates/" + ID_A + "/associations/soil-carbon");
 });
 
 test("errors are reported in plain language, and expired search handles ask for a new search", async () => {
-  assert.match(intake.errorText(401), /not accepted/);
+  assert.match(intake.errorText(401), /Sign in again/);
+  assert.match(intake.errorText(403), /does not allow/);
   assert.match(intake.errorText(409), /concurrent change/);
   assert.match(intake.errorText(503), /not enabled/);
   assert.match(intake.errorText(500, "<script>x</script>"), /could not be completed/);
-  const f = fakeFetch({"POST /discovery/intake/candidates": () =>
-    [404, {detail: "This search result is no longer available; search again before saving"}]});
-  const client = intake.createClient(f);
-  client.setCredentials({token: CREDENTIAL, owner: OWNER});
+  const f = fakeFetch({"POST WS/v1/research-access/session": () => [200, session()],
+    "POST /discovery/intake/candidates": () => [404, {detail: "This search result is no longer available; search again before saving"}]});
+  const client = intake.createClient(f, undefined, IDENTITY);
+  await client.signIn();
   await assert.rejects(client.save(HANDLE, "cand-" + "a".repeat(24)), /search again/);
-  assert.deepEqual(JSON.parse(f.calls[0].init.body), {run_handle: HANDLE, candidate_id: "cand-" + "a".repeat(24)});
+  assert.deepEqual(JSON.parse(f.calls[1].init.body), {run_handle: HANDLE, candidate_id: "cand-" + "a".repeat(24)});
 });
 
-test("where intake is disabled the panel stays hidden and makes no further request", async () => {
-  for (const status of [() => [200, {enabled: false, reason: "disabled"}], () => [503, {}]]) {
+test("only a https Workspace origin, or http on loopback, is used for sign-in", () => {
+  for (const ok of ["https://workspace.example.org", "https://workspace.example.org:8443", "http://127.0.0.1:18965",
+                    "http://localhost:18965"]) {
+    assert.equal(intake.workspaceOrigin({mode: "workspace-session", workspaceUrl: ok}), ok);
+  }
+  for (const bad of ["http://workspace.example.org", "https://workspace.example.org/path", "javascript:alert(1)",
+                     "https://user@workspace.example.org", "", null]) {
+    assert.equal(intake.workspaceOrigin({mode: "workspace-session", workspaceUrl: bad}), "");
+  }
+  assert.equal(intake.workspaceOrigin({mode: "closed", workspaceUrl: WS}), "");
+});
+
+test("the panel stays hidden where intake or Sustainable Catalyst sessions are not enabled", async () => {
+  for (const status of [() => [200, {enabled: false, reason: "disabled"}], () => [503, {}],
+                        () => [200, {enabled: true, identity: {mode: "closed"}}],
+                        () => [200, {enabled: true}]]) {
     const panel = new Node("section");
     const f = fakeFetch({"GET /discovery/intake/status": status});
     assert.equal(await intake.mount(panel, doc, f), null);
@@ -125,33 +201,61 @@ test("where intake is disabled the panel stays hidden and makes no further reque
   }
 });
 
-test("where intake is enabled, signing in loads articles and saved sources and clears the token field", async () => {
+test("a signed-out person sees a sign-in link and no form for any credential or identity", async () => {
+  const f = fakeFetch({"GET /discovery/intake/status": () => [200, {enabled: true, identity: IDENTITY}],
+                       "POST WS/v1/research-access/session": () => [401, {}]});
+  const panel = new Node("section");
+  await intake.mount(panel, doc, f, "https://research.example.org/discover?q=1");
+  assert.equal(panel.hidden, false);
+  assert.equal(byTag(panel, "input").length, 0);
+  assert.equal(byTag(panel, "form").length, 0);
+  const link = byClass(panel, "intake-signin-link")[0];
+  assert.equal(link.textContent, "Sign in with Sustainable Catalyst");
+  assert.equal(link.attrs.href, WS + "/v1/auth/login?returnTo=" + encodeURIComponent("https://research.example.org/discover?q=1"));
+  assert.equal(f.calls.some(c => c.url.startsWith("/api/research/v1/discovery/intake/candidates")), false);
+});
+
+test("a signed-in person sees their own articles and sources; signing out clears them", async () => {
   const f = fakeFetch({
-    "GET /discovery/intake/status": () => [200, {enabled: true}],
+    "GET /discovery/intake/status": () => [200, {enabled: true, identity: IDENTITY}],
+    "POST WS/v1/research-access/session": () => [200, session()],
+    "GET WS/v1/research-approvals/grants": () => [200, {items: []}],
+    "POST WS/v1/auth/logout": () => [200, {}],
     "GET /editorial/articles": () => [200, {items: [{slug: "soil-carbon", title: "Soil carbon"}]}],
     "GET /discovery/intake/candidates": () => [200, {items: [saved()]}]
   });
   const panel = new Node("section");
   panel.hidden = true;
   const ctl = await intake.mount(panel, doc, f);
-  assert.ok(ctl && panel.hidden === false);
-  const inputs = byTag(panel, "input");
-  const token = inputs.find(i => i.name === "token");
-  assert.equal(token.type, "password");
-  assert.equal(token.autocomplete, "off");
-  token.value = CREDENTIAL;
-  inputs.find(i => i.name === "owner").value = OWNER;
-  byTag(panel, "form")[0].dispatch("submit");
-  await tick(); await tick(); await tick();
-  assert.equal(token.value, "");
-  assert.deepEqual(f.calls.map(c => c.url.replace("/api/research/v1", "")),
-    ["/discovery/intake/status", "/editorial/articles", "/discovery/intake/candidates"]);
+  assert.ok(ctl && panel.hidden === false && ctl.signedIn() && ctl.isOwner());
+  assert.match(panel.textContent, new RegExp("Signed in as " + OWNER));
   assert.equal(byClass(panel, "intake-saved").length, 1);
-  assert.match(panel.textContent, /Signed in for this session/);
-  assert.ok(!panel.textContent.includes(CREDENTIAL));
-  buttonNamed(panel, "Forget credential").dispatch("click");
+  assert.equal(byTag(panel, "select").length, 1, "only the article picker; no owner picker without editor grants");
+  buttonNamed(panel, "Sign out").dispatch("click");
+  await settle();
   assert.equal(ctl.signedIn(), false);
   assert.equal(byClass(panel, "intake-saved").length, 0);
+  assert.ok(byClass(panel, "intake-signin-link")[0]);
+  assert.ok(f.calls.some(c => c.url === WS + "/v1/auth/logout" && c.init.credentials === "include"));
+});
+
+test("an ended session mid-way returns the panel to sign-in and clears the sources", async () => {
+  let live = true;
+  const f = fakeFetch({
+    "GET /discovery/intake/status": () => [200, {enabled: true, identity: IDENTITY}],
+    "POST WS/v1/research-access/session": () => [200, session()],
+    "GET WS/v1/research-approvals/grants": () => [200, {items: []}],
+    "GET /editorial/articles": () => [200, {items: []}],
+    "GET /discovery/intake/candidates": () => [200, {items: [saved()]}],
+    ["POST /discovery/intake/candidates/" + ID_A + "/dismiss"]: () => live ? [200, {}] : [401, {detail: {message: "x"}}]
+  });
+  const panel = new Node("section");
+  const ctl = await intake.mount(panel, doc, f);
+  live = false;
+  await ctl.dismiss(ID_A);
+  assert.equal(ctl.signedIn(), false);
+  assert.equal(byClass(panel, "intake-saved").length, 0);
+  assert.match(all(panel, n => n.attrs.role === "status")[0].textContent, /Sign in again/);
 });
 
 test("a search card offers Save only for an intake-enabled run with a signed-in session", async () => {
@@ -279,29 +383,4 @@ test("the saved status the panel expects is the one the intake API returns", () 
   assert.match(api, /^SAVED, DISMISSED = "saved-unreviewed", "dismissed"$/m);
   const source = fs.readFileSync(path.join(__dirname, "../research-web/assets/research-discovery-intake.js"), "utf8");
   assert.match(source, /var SAVED = "saved-unreviewed";/);
-});
-
-test("a credential the server rejects is not kept and the previous session's sources are cleared", async () => {
-  let accept = true;
-  const f = fakeFetch({
-    "GET /discovery/intake/status": () => [200, {enabled: true}],
-    "GET /editorial/articles": () => accept ? [200, {items: []}] : [401, {detail: "unauthorised"}],
-    "GET /discovery/intake/candidates": () => accept ? [200, {items: [saved()]}] : [401, {detail: "unauthorised"}]
-  });
-  const panel = new Node("section");
-  const ctl = await intake.mount(panel, doc, f);
-  const input = name => byTag(panel, "input").find(i => i.name === name);
-  const signIn = async () => { byTag(panel, "form")[0].dispatch("submit"); for (let i = 0; i < 6; i++) await tick(); };
-  input("token").value = CREDENTIAL; input("owner").value = OWNER;
-  await signIn();
-  assert.equal(byClass(panel, "intake-saved").length, 1);
-  accept = false;
-  input("token").value = "rejected-value"; input("actor").value = "workspace-user:editor";
-  await signIn();
-  assert.equal(ctl.signedIn(), false);
-  assert.equal(byClass(panel, "intake-saved").length, 0);
-  const status = all(panel, n => n.attrs.role === "status")[0].textContent;
-  assert.match(status, /not accepted/);
-  assert.match(status, /credential was not kept/);
-  assert.doesNotMatch(status, /Signed in/);
 });

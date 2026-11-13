@@ -45,6 +45,7 @@ from sqlalchemy.orm import Session
 
 from . import convergence as cv
 from . import editorial as ed
+from . import user_sessions as us
 from . import workspaces as ws
 from .discovery_intake_store import (  # noqa: F401 (re-exported)
     DiscoveryAssociation, DiscoveryCandidateSource, DiscoveryIntakeEvent, DiscoveryLibraryProposal,
@@ -94,7 +95,7 @@ def intake_state(env=None) -> IntakeState:
         return IntakeState(False, "production-not-authorized")
     if environment not in {"staging", "development"}:
         return IntakeState(False, "environment-not-staging")
-    if not cv.writes_enabled():
+    if not (cv.writes_enabled() or us.session_state(env).enabled):
         return IntakeState(False, "identity-gate-closed")
     return IntakeState(True, "active")
 
@@ -420,8 +421,7 @@ def intake_actor(request: Request, authorization: str | None = Header(default=No
     state = intake_state()
     if not state.enabled:
         _closed(state)
-    owner = cv.internal_principal(authorization, x_sc_owner_scope)
-    return ed.editorial_actor(request, owner, x_sc_actor_scope, x_sc_editor_attestation)
+    return ed.editorial_actor(request, authorization, x_sc_owner_scope, x_sc_actor_scope, x_sc_editor_attestation)
 
 
 def _do(session: Session, fn, *args):
@@ -441,7 +441,7 @@ def intake_status():
     return {"schema": "sc-research-discovery-intake-status/1.0", "stage": STAGE, "enabled": state.enabled,
             "reason": state.reason, "production_intake_authorized": PRODUCTION_INTAKE_AUTHORIZED,
             "library_submission_authorized": LIBRARY_SUBMISSION_AUTHORIZED, "separation": SEPARATION,
-            "publication_enabled": False}
+            "publication_enabled": False, "identity": us.public_status()}
 
 
 @router.get("/candidates")

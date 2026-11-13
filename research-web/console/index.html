@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Research Console · Sustainable Catalyst</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <link rel="stylesheet" href="/assets/research-console.css">
+  <script src="/assets/research-figures.js" defer></script>
+  <script src="/assets/research-discovery-intake.js" defer></script>
+  <script src="/assets/research-console.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#console-main">Skip to the console</a>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">SC</span><span>Sustainable Catalyst Research<small>Research Console</small></span></a>
+    <div class="console-who"><span id="console-who" aria-live="polite"></span>
+      <button type="button" id="console-signout" class="console-link" hidden>Sign out</button></div>
+  </header>
+  <main id="console-main" class="console">
+    <p id="console-notice" class="console-notice" role="status">Loading the Research Console…</p>
+
+    <section id="console-signin" class="console-panel" hidden>
+      <h2>Sign in</h2>
+      <p>The console shows your own Research records. Sign in with your Sustainable Catalyst Workspace account; Research
+        takes your identity from Workspace's signature and never asks for a service credential.</p>
+      <p><a id="console-signin-link" class="console-button" href="#">Sign in at Workspace</a></p>
+    </section>
+
+    <div id="console-app" hidden>
+      <nav class="console-tabs" aria-label="Console sections">
+        <a href="#workspace">Notebooks</a><a href="#projects">Projects</a><a href="#graph">Knowledge graph</a>
+        <a href="#object">Inspect</a><a href="#publication">Publication</a>
+      </nav>
+
+      <section id="workspace" class="console-panel">
+        <h2>Workspace notebooks</h2>
+        <p class="console-fine">Notebooks, datasets and runs stay in Workspace. Importing registers a signed, hash-verified
+          reference to one verified run in your private Research records; nothing is copied or published.</p>
+        <div class="console-row">
+          <label>Workspace project<select id="ws-project"></select></label>
+          <label>Notebook<select id="ws-notebook"></select></label>
+        </div>
+        <div class="console-row">
+          <label>Research area (slug)<input id="imp-area" value="workspace-research" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></label>
+          <label>Research entry (slug)<input id="imp-entry" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></label>
+          <label>Entry title<input id="imp-title" maxlength="300" required></label>
+        </div>
+        <div id="ws-cells" aria-live="polite"></div>
+        <div id="ws-result" class="console-result" aria-live="polite"></div>
+      </section>
+
+      <section id="projects" class="console-panel">
+        <h2>Your Research projects</h2>
+        <div id="rs-projects"></div>
+      </section>
+
+      <section id="graph" class="console-panel">
+        <h2>Knowledge graph</h2>
+        <p class="console-fine">Your private provenance and dependency graph. Relations are recorded lineage, not scientific proof.</p>
+        <div id="rs-graph-svg" class="console-graph"></div>
+        <div id="rs-graph-list"></div>
+      </section>
+
+      <section id="object" class="console-panel">
+        <h2>Inspect</h2>
+        <div id="rs-object"><p class="console-fine">Choose a node in the graph to see its provenance, reproduction and approvals.</p></div>
+        <div id="rs-figure"></div>
+      </section>
+
+      <section id="publication" class="console-panel">
+        <h2>Publication preparation</h2>
+        <p class="console-fine">Link verified outputs to an article revision and submit it for review. Publication needs
+          Workspace-signed scientific, ownership, source-rights and publication approvals; the console never publishes.</p>
+        <div class="console-row">
+          <label>Research entry<select id="pub-entry"></select></label>
+          <label>Article title<input id="pub-title" maxlength="350"></label>
+        </div>
+        <label class="console-block">Summary<textarea id="pub-summary" rows="2" maxlength="10000"></textarea></label>
+        <label class="console-block">Findings<textarea id="pub-body" rows="5"></textarea></label>
+        <fieldset id="pub-refs" class="console-refs"><legend>Linked outputs</legend></fieldset>
+        <div class="console-actions">
+          <button type="button" id="pub-revise">Save article revision</button>
+          <button type="button" id="pub-submit" disabled>Submit for review</button>
+        </div>
+        <div id="pub-result" class="console-result" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
