@@ -12,7 +12,7 @@ app = FastAPI(title="Sustainable Catalyst Research", version="0.1.0", docs_url=N
 CATALOG_FILE = Path(__file__).with_name("public-catalog.json")
 PREFIX = "/api/research/v1"
 # Readiness requires exactly this Alembic head (tests assert it matches the migrations).
-SCHEMA_HEAD = "0013_discovery_intake"
+SCHEMA_HEAD = "0014_discovery_record_metadata"
 AREA_FIELDS = ("slug", "title", "summary")
 ARTICLE_FIELDS = ("slug", "area_slug", "title", "summary", "version", "state")
 
