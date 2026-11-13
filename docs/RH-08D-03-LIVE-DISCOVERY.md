@@ -16,6 +16,7 @@
 | API | `research-api/app/discovery.py` | `POST /discovery/search` responds as follows:<br>• 503 `DISCOVERY_PROVIDERS_DISABLED`, with a `reason`, unless activation is active;<br>• 503 `DISCOVERY_PROVIDER_NOT_ENABLED` for a source that is not configured;<br>• 503 `DISCOVERY_PROVIDER_NOT_AVAILABLE` for sources without an adapter;<br>• 429 `DISCOVERY_BUSY` when two searches are already running;<br>• otherwise 200 with the typed run and `Cache-Control: no-store`.<br>Readiness reports the mode, the reason, the enabled providers, and whether a contact and an OpenAlex key are configured (true or false only, never the values). |
 | Interface | `research-discovery.js` and `.css`, `app.js` | Results are labelled *Discovered — unreviewed*. Every run shows the separation notice. Live runs show a banner naming the sources searched and the retrieval time. Policy outcomes and refused searches are explained in plain language. |
 | Staging acceptance | `scripts/discovery_staging_acceptance.py` | Checks a staging API: readiness (including that a contact and an OpenAlex key are configured), two fixed public queries five seconds apart, and the refusal of a source without an adapter. It writes a summary report with no titles, contact address or key. It runs only against loopback or an `https` staging host. |
+| Egress proxy | `research-api/app/discovery_egress_proxy.py`; `https_transport.py` proxy mode | A CONNECT relay that allows exactly `api.openalex.org:443` and `api.crossref.org:443`. It vets that every resolved address is public, pins the connection to a vetted address, caps idle time, total time, bytes and concurrent tunnels, and logs only the destination host, outcome, byte counts and duration. With `RESEARCH_DISCOVERY_EGRESS_PROXY=http://<service>:<port>` (a single-label internal service name only), the transport tunnels through it, and TLS is still verified end to end against the provider. See [Least-privilege egress design](#least-privilege-egress-design). |
 | Provider preflight | `scripts/discovery_provider_preflight.py` | A read-only check of DNS, TLS and one bare `GET /` per provider API root: no search, no key, no contact. It uses only the standard library and is run on the staging host and inside the staging API container. |
 
 ## Provider-policy assessment (reviewed 2026-11-12)
@@ -57,12 +58,33 @@ Sources were read on 2026-11-12. The OpenAlex help pages show "last updated 3 No
 
 **Finding:** the staging Research API container is on an internal-only network, so it has no outbound DNS or internet route, by design. Live discovery in staging therefore needs an **owner-approved egress path** for the Research API container only. Options:
 
-- **(a)** Attach the API container to a second, non-internal bridge network, and add a host firewall rule in the `DOCKER-USER` chain that allows that network only TCP 443 out plus DNS. Destinations are restricted by the application's host allowlist and public-address vetting. This is the simplest option.
-- **(b)** Route outbound traffic through an egress proxy that allows only the two hosts. The transport currently refuses to use proxies, so this would be a code change.
+- **(a)** Attach the API container to a non-internal network. This gives the whole container egress, and destinations would be restricted only by the application.
+- **(b)** Use a dedicated egress proxy that allows only the two provider hosts. **Chosen:** see [Least-privilege egress design](#least-privilege-egress-design).
 
 Hosts are not pinned by IP address, because both providers serve from changing CDN and cloud addresses.
 
 The deployed staging image predates the RH-08D-01 to 03 code. Activation needs a new staging image built from the merged PR #6, plus a staging deployment that the owner authorises.
+
+## Least-privilege egress design
+
+The staging Research API container keeps **no direct internet access**. Provider traffic leaves only through a dedicated egress proxy:
+
+    [research-api]──(internal network)──[discovery-egress]──(egress network)──▶ api.openalex.org:443
+      no outbound route                  CONNECT allowlist                     api.crossref.org:443
+      TLS verified end to end ───────────────────────────────────────────────▶ (proxy sees no URL, header or key)
+
+- **research-api:** attached only to internal networks (Docker `internal: true`). It cannot resolve or reach anything outside the deployment. `RESEARCH_DISCOVERY_EGRESS_PROXY` points at `discovery-egress`.
+- **discovery-egress:**
+  - runs `python -m app.discovery_egress_proxy` from the **same image** as the API, so no third-party proxy image is involved;
+  - runs as the non-root image user, with a read-only root file system, all capabilities dropped, `no-new-privileges`, and memory and process limits;
+  - is the only container on the egress network, and publishes no ports.
+- **Destination restriction:**
+  - by name: the proxy allows only the two provider hosts on port 443;
+  - by address: every resolved address must be public, which blocks the host, the Docker networks, private ranges and cloud metadata services;
+  - by protocol: only `CONNECT` (no plain HTTP);
+  - provider addresses change across CDN and cloud ranges, so destinations are restricted by name and vetted address, not by a fixed IP list.
+- **Optional host firewall (defence in depth):** a `DOCKER-USER` rule that lets the egress network's subnet open only new TCP connections to port 443. DNS for containers goes through the Docker daemon on the host, so the containers need no outbound DNS rule. The rule requires root on the host and is a separate owner authorisation.
+- **Rollback:** stop `discovery-egress`, or remove the proxy setting; the API is back to having no egress. Remove the firewall rule if one was added.
 
 ## Activation procedure (staging only; needs separate owner authorisation)
 
@@ -70,7 +92,7 @@ Preconditions, each recorded in Data:
 1. **Provider terms.** The owner reviews the OpenAlex terms-of-service PDFs and the Crossref documentation cited above, and confirms or lowers `POLICIES` (a code change if lowered).
 2. **Contact.** A monitored institutional role mailbox (not on a reserved or example domain) for `RESEARCH_DISCOVERY_CONTACT`. It goes to the providers in `mailto` and the User-Agent and is not shown publicly. Crossref rate-limits per address, so do not share it with other tools.
 3. **OpenAlex key.** Provisioned as described in [Key management](#key-management). Alternatively, enable Crossref only (`RESEARCH_DISCOVERY_PROVIDERS=crossref`), which needs no key.
-4. **Egress.** The approved egress path for the staging Research API container, after which `discovery_provider_preflight.py` passes *inside the container*.
+4. **Egress.** The approved egress design above is deployed, and `discovery_provider_preflight.py --proxy discovery-egress:3128` passes *inside the API container*.
 5. **Image.** A staging deployment of the merged RH-08D-03 code, isolated from production.
 
 Switch on (staging Research API service only), then restart it:
@@ -80,6 +102,7 @@ Switch on (staging Research API service only), then restart it:
     RESEARCH_DISCOVERY_PROVIDERS=openalex,crossref
     RESEARCH_DISCOVERY_CONTACT=<monitored institutional mailbox>
     RESEARCH_OPENALEX_API_KEY_FILE=/run/secrets/openalex_api_key
+    RESEARCH_DISCOVERY_EGRESS_PROXY=http://discovery-egress:3128
 
 Verify:
 1. Readiness returns `status: active_staging`, `contact_configured: true`, `openalex_api_key_configured: true`, `production_discovery_authorized: false`, and `false` for saving, intake and publication.

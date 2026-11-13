@@ -12,6 +12,9 @@ Each request is checked before any network activity:
 * TLS 1.2 or later with certificate and host-name verification; no proxy or cookies. The only credential is
   an optional bearer token (the OpenAlex API key) bound to one provider's host, sent as a header so it never
   appears in a URL, the request provenance or an error;
+* optionally, through the staging egress proxy (``app.discovery_egress_proxy``): the transport then sends
+  ``CONNECT <provider host>:443`` to that fixed internal proxy, which does the public-address vetting, and TLS
+  is still verified end to end against the provider host name;
 * redirects are not followed, the body is capped and must arrive within ``total_timeout`` seconds, and only
   rate-limit and content-type headers are kept.
 """
@@ -60,13 +63,21 @@ def _connect(host: str, address: str, timeout: float):
     return _PinnedHTTPSConnection(host, address, timeout, tls_context())
 
 
+def _connect_via_proxy(host: str, proxy: tuple[str, int], timeout: float):
+    # http.client sends CONNECT host:443 to the proxy, then wraps TLS with server_hostname=host.
+    connection = http.client.HTTPSConnection(proxy[0], proxy[1], timeout=timeout, context=tls_context())
+    connection.set_tunnel(host, 443)
+    return connection
+
+
 class HttpsTransport:
     kind = "https"
     external = True
 
     def __init__(self, *, user_agent: str, timeout: float = 10.0, total_timeout: float | None = None,
                  max_bytes: int = MAX_BYTES, resolver=_system_resolver, connector=_connect, clock=time.monotonic,
-                 bearer=None, bearer_provider: str | None = None):
+                 bearer=None, bearer_provider: str | None = None, proxy: tuple[str, int] | None = None,
+                 proxy_connector=_connect_via_proxy):
         total_timeout = 2 * timeout if total_timeout is None else total_timeout
         if not 0 < timeout <= 30 or not timeout <= total_timeout <= 60 or not 0 < max_bytes <= 10_000_000:
             raise ValueError("timeout must be in (0, 30] s, total_timeout in [timeout, 60] s and max_bytes in (0, 10 MB]")
@@ -75,6 +86,7 @@ class HttpsTransport:
         if (bearer is None) != (bearer_provider is None) or (bearer_provider and bearer_provider not in ALLOWED_HOSTS):
             raise ValueError("a bearer token must be bound to exactly one allowed provider")
         self._bearer, self._bearer_provider = bearer, bearer_provider  # bearer: an activation.Secret
+        self._proxy, self._proxy_connect = proxy, proxy_connector
 
     def target(self, request: ProviderRequest) -> tuple[str, str]:
         """(host, path with query) for an allowed request; raises TransportError otherwise. No network."""
@@ -115,8 +127,10 @@ class HttpsTransport:
     def send(self, request: ProviderRequest) -> ProviderResponse:
         host, path = self.target(request)
         deadline = self._clock() + self.total_timeout
-        address = self.vetted_address(host)
-        connection = self._connect(host, address, self.timeout)
+        if self._proxy:
+            connection = self._proxy_connect(host, self._proxy, self.timeout)
+        else:
+            connection = self._connect(host, self.vetted_address(host), self.timeout)
         try:
             headers = {"Host": host, "User-Agent": self.user_agent, "Accept": "application/json",
                        "Accept-Encoding": "identity", "Connection": "close"}
@@ -139,6 +153,8 @@ class HttpsTransport:
         except (http.client.HTTPException, ValueError) as error:
             raise TransportError("protocol-error") from error
         except OSError as error:
+            if str(error).startswith("Tunnel connection failed"):
+                raise TransportError("egress-refused") from error
             raise TransportError("connection-failure") from error
         finally:
             connection.close()

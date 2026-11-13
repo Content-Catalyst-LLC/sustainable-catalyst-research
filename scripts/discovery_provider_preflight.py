@@ -8,6 +8,10 @@ status, content type, rate-limit headers and timings. It never reads application
 and never enables anything. Standard library only, Python 3.9+.
 
     python3 scripts/discovery_provider_preflight.py > preflight.json
+    python3 scripts/discovery_provider_preflight.py --proxy discovery-egress:3128   # via the egress proxy
+
+With ``--proxy`` the provider names are resolved and vetted by the egress proxy, not locally; TLS is still
+verified end to end against each provider host.
 """
 import http.client
 import ipaddress
@@ -51,23 +55,34 @@ def connect(host, address):
     return _Pinned(host, address)
 
 
-def check(provider, host, resolver=resolve, connector=connect, clock=time.monotonic):
+def connect_via_proxy(host, proxy):
+    connection = http.client.HTTPSConnection(proxy[0], proxy[1], timeout=TIMEOUT, context=tls_context())
+    connection.set_tunnel(host, 443)
+    return connection
+
+
+def check(provider, host, resolver=resolve, connector=connect, clock=time.monotonic, proxy=None,
+          proxy_connector=connect_via_proxy):
     result = {"provider": provider, "host": host, "ok": False}
     started = clock()
-    try:
-        addresses = resolver(host)
-    except OSError as error:
-        result["error"] = "dns-failure: " + type(error).__name__
-        return result
-    result["addresses"] = addresses
-    result["dns_ms"] = round((clock() - started) * 1000)
-    if not addresses or any(not ipaddress.ip_address(a).is_global or ipaddress.ip_address(a).is_multicast
-                            for a in addresses):
-        result["error"] = "non-public-address"
-        return result
-    address = next((a for a in addresses if ":" not in a), addresses[0])
-    result["connected_address"] = address
-    connection = connector(host, address)
+    if proxy:
+        result["via_proxy"] = f"{proxy[0]}:{proxy[1]}"
+        connection = proxy_connector(host, proxy)
+    else:
+        try:
+            addresses = resolver(host)
+        except OSError as error:
+            result["error"] = "dns-failure: " + type(error).__name__
+            return result
+        result["addresses"] = addresses
+        result["dns_ms"] = round((clock() - started) * 1000)
+        if not addresses or any(not ipaddress.ip_address(a).is_global or ipaddress.ip_address(a).is_multicast
+                                for a in addresses):
+            result["error"] = "non-public-address"
+            return result
+        address = next((a for a in addresses if ":" not in a), addresses[0])
+        result["connected_address"] = address
+        connection = connector(host, address)
     try:
         started = clock()
         connection.request("GET", "/", headers={"Host": host, "User-Agent": USER_AGENT, "Accept": "application/json",
@@ -95,7 +110,9 @@ def check(provider, host, resolver=resolve, connector=connect, clock=time.monoto
     except (TimeoutError, socket.timeout):
         result["error"] = "timeout"
     except (OSError, http.client.HTTPException) as error:
-        result["error"] = "connection-failure: " + type(error).__name__
+        refused = str(error).startswith("Tunnel connection failed")
+        result["error"] = ("egress-refused: " + str(error)[:80]) if refused else \
+            "connection-failure: " + type(error).__name__
     finally:
         connection.close()
     return result
@@ -114,11 +131,19 @@ def _days_left(not_after):
     return (expires - datetime.now(timezone.utc)).days
 
 
-def main():
-    report = {"schema": "sc-research-discovery-provider-preflight/1.0",
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    proxy = None
+    if argv[:1] == ["--proxy"] and len(argv) == 2:
+        name, _, port = argv[1].rpartition(":")
+        proxy = (name, int(port))
+    elif argv:
+        print("usage: discovery_provider_preflight.py [--proxy name:port]", file=sys.stderr)
+        return 2
+    report = {"schema": "sc-research-discovery-provider-preflight/1.0", "via_proxy": bool(proxy),
               "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
               "python": sys.version.split()[0], "openssl": ssl.OPENSSL_VERSION,
-              "results": [check(p, h) for p, h in HOSTS.items()]}
+              "results": [check(p, h, proxy=proxy) for p, h in HOSTS.items()]}
     report["ok"] = all(r["ok"] for r in report["results"])
     print(json.dumps(report, indent=1))
     return 0 if report["ok"] else 1
