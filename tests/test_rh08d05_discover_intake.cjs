@@ -267,3 +267,28 @@ test("the saved status the panel expects is the one the intake API returns", () 
   const source = fs.readFileSync(path.join(__dirname, "../research-web/assets/research-discovery-intake.js"), "utf8");
   assert.match(source, /var SAVED = "saved-unreviewed";/);
 });
+
+test("a credential the server rejects is not kept and the previous session's sources are cleared", async () => {
+  let accept = true;
+  const f = fakeFetch({
+    "GET /discovery/intake/status": () => [200, {enabled: true}],
+    "GET /editorial/articles": () => accept ? [200, {items: []}] : [401, {detail: "unauthorised"}],
+    "GET /discovery/intake/candidates": () => accept ? [200, {items: [saved()]}] : [401, {detail: "unauthorised"}]
+  });
+  const panel = new Node("section");
+  const ctl = await intake.mount(panel, doc, f);
+  const input = name => byTag(panel, "input").find(i => i.name === name);
+  const signIn = async () => { byTag(panel, "form")[0].dispatch("submit"); for (let i = 0; i < 6; i++) await tick(); };
+  input("token").value = CREDENTIAL; input("owner").value = OWNER;
+  await signIn();
+  assert.equal(byClass(panel, "intake-saved").length, 1);
+  accept = false;
+  input("token").value = "rejected-value"; input("actor").value = "workspace-user:editor";
+  await signIn();
+  assert.equal(ctl.signedIn(), false);
+  assert.equal(byClass(panel, "intake-saved").length, 0);
+  const status = all(panel, n => n.attrs.role === "status")[0].textContent;
+  assert.match(status, /not accepted/);
+  assert.match(status, /credential was not kept/);
+  assert.doesNotMatch(status, /Signed in/);
+});
