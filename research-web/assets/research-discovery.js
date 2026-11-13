@@ -182,7 +182,7 @@
 
   function renderIntake(doc, candidate, context) {
     var box = el(doc, "div", "discovery-intake");
-    // RH-08D-05: where governed intake is enabled and a session credential is set, the candidate can be saved;
+    // RH-08D-05: where governed intake is enabled and the person is signed in (SC-UP-01), the candidate can be saved;
     // the Library proposal is then made from "My saved sources". Elsewhere the button stays disabled.
     var save = context.saveAction ? context.saveAction(candidate) : null;
     var issues = (context.issues[candidate.candidate_id] || []).map(function (i) { return ISSUE_TEXT[i] || i; });

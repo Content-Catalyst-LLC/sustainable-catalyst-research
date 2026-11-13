@@ -1,10 +1,13 @@
-/* RH-08D-05 — Discover ↔ governed intake (RH-08D-04). Saves a discovered candidate to the owner's sources, manages
-   saved sources (review issues, possible duplicates, Research article associations, dismissal) and records Library
-   review proposals. Nothing here sends anything to the Library: a proposal is recorded with status
-   awaiting-library-endpoint and sent = false.
-   The panel appears only where the server reports intake enabled (never in production: the server refuses it by
-   constant). Credentials are typed per session, held in this closure only (no storage, no cookies) and sent with
-   credentials: "omit". Every server and provider value enters the DOM through textContent.
+/* RH-08D-05 / SC-UP-01 — Discover ↔ governed intake (RH-08D-04). Saves a discovered candidate to the signed-in
+   person's sources, manages saved sources (review issues, possible duplicates, Research article associations,
+   dismissal) and records Library review proposals. Nothing here sends anything to the Library: a proposal is recorded
+   with status awaiting-library-endpoint and sent = false.
+   The panel appears only where the server reports intake enabled with Sustainable Catalyst sessions
+   (identity.mode "workspace-session"; never in production: the server refuses it by constant). The person signs in at
+   Workspace (SC Identity); this page then asks Workspace, with the Workspace cookie, for a short-lived signed Research
+   session and sends it to Research in the Authorization header (credentials: "omit"). There is no service credential,
+   nothing is stored, and the person never chooses their own identity: Research takes it from Workspace's signature.
+   Every server and provider value enters the DOM through textContent.
 */
 (function (host) {
   "use strict";
@@ -47,7 +50,8 @@
   }
 
   function errorText(status, detail) {
-    if (status === 401 || status === 403) return "The staging credential or editor grant was not accepted for this action.";
+    if (status === 401) return "Your Sustainable Catalyst sign-in has ended. Sign in again; nothing was changed.";
+    if (status === 403) return "Your account or editor grant does not allow this action.";
     if (status === 404) return typeof detail === "string" && /search again/.test(detail) ? detail
       : "Not found. It may have expired or belong to another owner.";
     if (status === 409) return "A concurrent change was made. Try again.";
@@ -56,33 +60,88 @@
     return "The request could not be completed. Nothing was changed.";
   }
 
-  /* Session-only credentials: the staging service token, owner scope and an optional editor attestation. */
-  function createClient(fetchImpl, base) {
-    var creds = null;
+  var SESSION_SCHEMA = "sc-workspace-research-session/1.0"; // user_sessions.SESSION_SCHEMA
+  var SESSION_PATH = "/v1/research-access/session";
+  var GRANTS_PATH = "/v1/research-approvals/grants";
+  var GRANT_ID = /^rag_[0-9a-f]{32}$/;
+  var SESSION_MARGIN_MS = 30000; // fetch a new signed session this long before the current one expires
+  var ATTESTATION_REUSE_MS = 240000; // below editorial.EDITOR_WRITE_WINDOW_SECONDS (300 s)
+  var WORKSPACE = /^(https:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?|http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:[0-9]{1,5})?)$/;
+
+  /* The Workspace origin the server names for sign-in (user_sessions.workspace_url), or "" when unusable. */
+  function workspaceOrigin(identity) {
+    var url = identity && identity.mode === "workspace-session" ? String(identity.workspaceUrl || "") : "";
+    return WORKSPACE.test(url) ? url : "";
+  }
+
+  function failure(status, message) {
+    var err = new Error(message || errorText(status));
+    err.status = status;
+    return err;
+  }
+
+  /* The signed-in person's Research client. Workspace calls carry the Workspace cookie; Research calls carry only the
+     signed session (and, when acting as an editor, that owner's Workspace attestation). */
+  function createClient(fetchImpl, base, identity) {
     var root = base || BASE;
+    var workspace = workspaceOrigin(identity);
+    var session = null, expires = 0, editor = null;
+    function workspaceCall(method, path) {
+      if (!workspace) return Promise.reject(failure(503, "Sustainable Catalyst sign-in is not configured here."));
+      return fetchImpl(workspace + path, {method: method, credentials: "include", cache: "no-store",
+        referrerPolicy: "no-referrer"});
+    }
+    function forget() { session = null; expires = 0; editor = null; }
+    function refresh() {
+      return workspaceCall("POST", SESSION_PATH)
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .catch(function () { return null; })
+        .then(function (doc) {
+          var until = doc && doc.schema === SESSION_SCHEMA && typeof doc.subject === "string" ? Date.parse(doc.expiresAt) : NaN;
+          if (isNaN(until)) { forget(); return null; }
+          session = doc; expires = until;
+          return doc;
+        });
+    }
+    function current() {
+      return session && expires - Date.now() > SESSION_MARGIN_MS ? Promise.resolve(session) : refresh();
+    }
+    function attestation() {
+      if (!editor) return Promise.resolve(null);
+      if (editor.value && Date.now() - editor.at < ATTESTATION_REUSE_MS) return Promise.resolve(editor.value);
+      var held = editor;
+      return workspaceCall("POST", GRANTS_PATH + "/" + held.grantId + "/attestation").then(function (res) {
+        if (!res.ok) throw failure(403, "Your editor grant for this owner is no longer active.");
+        return res.json();
+      }).then(function (doc) {
+        held.value = b64url(JSON.stringify(doc)); held.at = Date.now();
+        return held.value;
+      });
+    }
     function headers() {
-      var h = {"Content-Type": "application/json"};
-      if (!creds) return h;
-      h.Authorization = "Bearer " + creds.token;
-      h["X-SC-Owner-Scope"] = creds.owner;
-      if (creds.actor) h["X-SC-Actor-Scope"] = creds.actor;
-      if (creds.attestation) h["X-SC-Editor-Attestation"] = creds.attestation;
-      return h;
+      return current().then(function (doc) {
+        if (!doc) throw failure(401);
+        var h = {"Content-Type": "application/json", Authorization: "SC-Workspace " + b64url(JSON.stringify(doc))};
+        return attestation().then(function (value) {
+          if (value) { h["X-SC-Owner-Scope"] = editor.owner; h["X-SC-Editor-Attestation"] = value; }
+          return h;
+        });
+      });
     }
     function request(method, path, body) {
-      return fetchImpl(root + path, {method: method, headers: headers(), body: body ? JSON.stringify(body) : undefined,
-        credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer"})
-        .then(function (res) {
-          return res.json().catch(function () { return {}; }).then(function (data) {
-            if (!res.ok) {
-              var detail = data && data.detail;
-              var err = new Error(errorText(res.status, detail && typeof detail === "object" ? detail.message : detail));
-              err.status = res.status;
-              throw err;
-            }
-            return data;
-          });
+      return headers().then(function (h) {
+        return fetchImpl(root + path, {method: method, headers: h, body: body ? JSON.stringify(body) : undefined,
+          credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer"});
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok) {
+            if (res.status === 401) forget();
+            var detail = data && data.detail;
+            throw failure(res.status, errorText(res.status, detail && typeof detail === "object" ? detail.message : detail));
+          }
+          return data;
         });
+      });
     }
     function savedPath(id, rest) {
       if (!SAVED_ID.test(id)) throw new Error("Unexpected saved-source id");
@@ -93,16 +152,33 @@
       return encodeURIComponent(slug);
     }
     return {
-      setCredentials: function (values) {
-        var token = String(values.token || "").trim(), owner = String(values.owner || "").trim();
-        if (!token || !owner) throw new Error("Enter the staging credential and owner scope.");
-        var attestation = String(values.attestation || "").trim();
-        if (attestation) attestation = b64url(JSON.stringify(JSON.parse(attestation)));
-        creds = {token: token, owner: owner, actor: String(values.actor || "").trim(), attestation: attestation};
+      signIn: function () { return refresh(); },
+      signInUrl: function (returnTo) {
+        return workspace + "/v1/auth/login?returnTo=" + encodeURIComponent(String(returnTo || "/"));
       },
-      clear: function () { creds = null; },
-      signedIn: function () { return creds !== null; },
-      isOwner: function () { return creds !== null && (!creds.actor || creds.actor === creds.owner); },
+      signOut: function () {
+        var done = workspace ? workspaceCall("POST", "/v1/auth/logout").catch(function () {}) : Promise.resolve();
+        forget();
+        return done;
+      },
+      person: function () { return session ? session.subject : ""; },
+      signedIn: function () { return session !== null; },
+      isOwner: function () { return session !== null && editor === null; },
+      actingFor: function () { return editor ? editor.owner : ""; },
+      editorGrants: function () {
+        var me = session ? session.subject : "";
+        return workspaceCall("GET", GRANTS_PATH).then(function (res) { return res.ok ? res.json() : {items: []}; })
+          .catch(function () { return {items: []}; })
+          .then(function (data) {
+            return (data.items || []).filter(function (g) {
+              return g && g.role === "editor" && !g.revokedAt && g.grantee === me && GRANT_ID.test(String(g.grantId));
+            });
+          });
+      },
+      actFor: function (grant) {
+        if (grant && !GRANT_ID.test(String(grant.grantId))) throw new Error("Unexpected editor grant");
+        editor = grant ? {grantId: grant.grantId, owner: String(grant.ownerScope), value: "", at: 0} : null;
+      },
       status: function () {
         return fetchImpl(root + "/discovery/intake/status", {credentials: "omit", cache: "no-store"})
           .then(function (res) { return res.ok ? res.json() : {enabled: false}; })
@@ -270,25 +346,80 @@
     return box;
   }
 
-  /* Wire the panel. Returns the controller, or null when intake is not enabled (the panel then stays hidden). */
-  function mount(panel, doc, fetchImpl) {
-    var client = createClient(fetchImpl);
-    return client.status().then(function (status) {
-      if (!status || status.enabled !== true) { panel.hidden = true; return null; }
+  /* Wire the panel. Returns the controller, or null when intake with Sustainable Catalyst sessions is not enabled (the
+     panel then stays hidden). ``returnTo`` is where Workspace sends the person back after sign-in. */
+  function mount(panel, doc, fetchImpl, returnTo) {
+    return createClient(fetchImpl).status().then(function (status) {
+      var identity = status && status.identity;
+      if (!status || status.enabled !== true || !workspaceOrigin(identity)) { panel.hidden = true; return null; }
+      var client = createClient(fetchImpl, BASE, identity);
       var articles = [];
       var state = el(doc, "p", "discovery-notice");
       state.setAttribute("role", "status");
+      var account = el(doc, "div", "intake-account");
       var listHost = el(doc, "div", "intake-results");
       var controller;
+      function signedOut(message) {
+        listHost.replaceChildren();
+        articles = [];
+        var link = el(doc, "a", "intake-signin-link", "Sign in with Sustainable Catalyst");
+        link.setAttribute("href", client.signInUrl(returnTo));
+        account.replaceChildren(link);
+        state.textContent = message || "Sign in to save sources and see your saved sources.";
+      }
       function report(promise, done) {
         return promise.then(function (out) { state.textContent = done; return refresh().then(function () { return out; }); },
-          function (err) { state.textContent = err.message; throw err; });
+          function (err) {
+            if (err.status === 401) signedOut(err.message); else state.textContent = err.message;
+            throw err;
+          });
       }
       function refresh() {
         return client.list().then(function (data) {
           renderSavedList(listHost, data.items || [], articles, doc, controller);
           return true;
-        }, function (err) { state.textContent = err.message; return false; });
+        }, function (err) {
+          if (err.status === 401) signedOut(err.message); else state.textContent = err.message;
+          return false;
+        });
+      }
+      function load() {
+        // Switching person or owner never shows the previous list.
+        listHost.replaceChildren();
+        articles = [];
+        state.textContent = "Loading saved sources…";
+        return client.articles().then(function (data) { articles = data.items || []; }, function () { articles = []; })
+          .then(refresh).then(function (ok) {
+            if (ok) state.textContent = client.actingFor()
+              ? "Acting as an editor for " + client.actingFor() + "." : "Signed in. Search to save new sources.";
+            return ok;
+          });
+      }
+      function signedIn() {
+        account.replaceChildren(el(doc, "span", "intake-person", "Signed in as " + client.person()));
+        var signOut = button(doc, "Sign out", function () {
+          client.signOut().then(function () { signedOut("Signed out."); });
+        });
+        account.append(signOut);
+        return client.editorGrants().then(function (grants) {
+          if (!grants.length) return;
+          var label = el(doc, "label", "intake-owner-label", "Sources of ");
+          var select = el(doc, "select");
+          var mine = el(doc, "option", "", "My own");
+          mine.value = "";
+          select.append(mine);
+          grants.forEach(function (g) {
+            var option = el(doc, "option", "", g.ownerScope + " (editor" + (g.projectId === "*" ? "" : ", project " + g.projectId) + ")");
+            option.value = g.grantId;
+            select.append(option);
+          });
+          select.addEventListener("change", function () {
+            client.actFor(grants.filter(function (g) { return g.grantId === select.value; })[0] || null);
+            load();
+          });
+          label.append(select);
+          account.append(label);
+        });
       }
       controller = {
         signedIn: client.signedIn, isOwner: client.isOwner,
@@ -301,66 +432,27 @@
         }
       };
 
-      var form = el(doc, "form", "intake-signin");
-      form.append(el(doc, "p", "intake-note", "Staging only. The credential is kept in this page's memory and is " +
-        "forgotten when you reload or sign out. It is never stored."));
-      function field(label, name, type) {
-        var wrap = el(doc, "label", "", label + " ");
-        var input = el(doc, "input");
-        input.name = name; input.type = type || "text"; input.autocomplete = "off"; input.spellcheck = false;
-        wrap.append(input);
-        form.append(wrap);
-        return input;
-      }
-      var token = field("Staging credential", "token", "password");
-      var owner = field("Owner scope", "owner");
-      var actor = field("Acting editor (optional)", "actor");
-      var attestation = field("Editor attestation JSON (optional)", "attestation");
-      var signIn = el(doc, "button", "", "Use for this session");
-      signIn.type = "submit";
-      var signOut = button(doc, "Forget credential", function () {
-        client.clear();
-        token.value = ""; attestation.value = "";
-        listHost.replaceChildren();
-        articles = [];
-        state.textContent = "Credential forgotten.";
-      });
-      form.append(signIn, signOut);
-      form.addEventListener("submit", function (event) {
-        if (event && event.preventDefault) event.preventDefault();
-        try {
-          client.setCredentials({token: token.value, owner: owner.value, actor: actor.value, attestation: attestation.value});
-        } catch (err) { state.textContent = err.message; return; }
-        token.value = "";
-        // A new credential never shows the previous session's sources, and one the server rejects is not kept.
-        listHost.replaceChildren();
-        articles = [];
-        state.textContent = "Loading your saved sources…";
-        client.articles().then(function (data) { articles = data.items || []; }, function () { articles = []; })
-          .then(refresh).then(function (ok) {
-            if (ok) { state.textContent = "Signed in for this session. Search to save new sources."; return; }
-            client.clear();
-            attestation.value = "";
-            state.textContent += " The credential was not kept; nothing was loaded.";
-          });
-      });
-
       panel.replaceChildren();
-      panel.append(el(doc, "h3", "", "My saved sources"), form, state, listHost);
+      panel.append(el(doc, "h3", "", "My saved sources"), account, state, listHost);
       panel.hidden = false;
-      return controller;
+      return client.signIn().then(function (session) {
+        if (!session) { signedOut(); return controller; }
+        return signedIn().then(load).then(function () { return controller; });
+      });
     });
   }
 
   var api = {createClient: createClient, renderSavedList: renderSavedList, saveAction: saveAction, mount: mount,
-    errorText: errorText, controller: null};
+    errorText: errorText, workspaceOrigin: workspaceOrigin, controller: null};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (host) {
     host.SCResearchDiscoveryIntake = api;
     var start = function () {
       var panel = host.document && host.document.getElementById("discovery-intake-panel");
       if (!panel || !host.fetch) return;
-      mount(panel, host.document, host.fetch.bind(host)).then(function (c) { api.controller = c; });
+      var loc = host.location;
+      var here = loc && loc.origin ? loc.origin + loc.pathname + loc.search : "/";
+      mount(panel, host.document, host.fetch.bind(host), here).then(function (c) { api.controller = c; });
     };
     if (host.document && host.document.readyState === "loading") host.document.addEventListener("DOMContentLoaded", start);
     else start();
