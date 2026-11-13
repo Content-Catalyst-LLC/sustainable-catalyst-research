@@ -1,5 +1,6 @@
-/* RH-08D-02 — Discover results: candidate cards, source inspection, provenance, duplicates and the
-   (disabled) Library intake action. Renders a typed sc-research-discovery-search/1.0 response.
+/* RH-08D-02/03 — Discover results: candidate cards, source inspection, provenance, duplicates and the
+   (disabled) Library intake action. Renders a typed sc-research-discovery-search/1.0 response, live
+   (staging) or synthetic, and the status of a refused search.
    Every provider value is untrusted: it enters the DOM through textContent, links are built only for
    https URLs and validated DOIs, and this file makes no network request of its own.
 */
@@ -17,6 +18,15 @@
     "possible-duplicate": "possible duplicate of another candidate"
   };
   var FIELD_NAMES = {title: "Title", publication_year: "Publication year", venue: "Venue"};
+  var UNREVIEWED = "Discovered — unreviewed";
+  var SEPARATION = "Discovered — unreviewed: these are provider metadata leads. They have not been reviewed by " +
+    "the Library and are not approved Research evidence. Nothing from this search is saved.";
+  var REFUSED = {
+    DISCOVERY_PROVIDERS_DISABLED: "Live discovery is not enabled here. No external search was performed and nothing was saved.",
+    DISCOVERY_PROVIDER_NOT_ENABLED: "That source is not enabled here. No external search was performed and nothing was saved.",
+    DISCOVERY_PROVIDER_NOT_AVAILABLE: "That source has no discovery adapter yet. No external search was performed.",
+    DISCOVERY_BUSY: "Discovery is handling other searches. Try again in a few seconds. Nothing was saved."
+  };
 
   function providerName(id) { return PROVIDER_NAMES[id] || "Unknown source"; }
 
@@ -39,11 +49,32 @@
         return name + ": " + (outcome.records_received - outcome.records_rejected) + " records accepted" +
           (outcome.records_rejected ? ", " + outcome.records_rejected + " not usable as candidates" : "") + ".";
       case "disabled": return name + ": not enabled. No request was made.";
-      case "rate_limited": return name + ": rate limit reached. Try again later.";
-      case "unavailable": return name + ": temporarily unavailable.";
+      case "rate_limited":
+        return name + (outcome.code === "daily-budget-exhausted"
+          ? ": daily request limit for this service reached. Try again tomorrow."
+          : ": rate limit reached. Try again later.");
+      case "unavailable":
+        if (outcome.code === "circuit-open") return name + ": paused after repeated failures. Try again in a few minutes.";
+        if (outcome.code === "run-deadline") return name + ": not searched because the search ran out of time.";
+        if (outcome.code === "timeout") return name + ": did not respond in time.";
+        return name + ": temporarily unavailable.";
       case "invalid_response": return name + ": returned a response that could not be read.";
       default: return name + ": search failed.";
     }
+  }
+
+  function statusMessage(status, detail) {
+    var code = detail && typeof detail === "object" ? detail.code : null;
+    if (code && REFUSED[code]) return REFUSED[code];
+    if (status === 422) return "Enter a research question between 3 and 240 characters.";
+    return "Discovery is currently unavailable. No results were generated or saved.";
+  }
+
+  function liveText(run) {
+    var names = run.outcomes.filter(function (o) { return o.attempts > 0; })
+      .map(function (o) { return providerName(o.provider); });
+    return "Live metadata from " + (names.length ? names.join(" and ") : "no source") + ", retrieved " +
+      String(run.started_at) + ". Results are not stored and may change when searched again.";
   }
 
   function filterCandidates(candidates, filters) {
@@ -165,7 +196,7 @@
     var card = el(doc, "article", "discovery-candidate");
     if (CANDIDATE_ID.test(candidate.candidate_id)) card.id = candidate.candidate_id;
     var labels = el(doc, "p", "discovery-labels");
-    labels.append(el(doc, "span", "label", "Discovered · unreviewed"));
+    labels.append(el(doc, "span", "label", UNREVIEWED));
     if (candidate.retracted === true) labels.append(el(doc, "span", "label label-retracted", "Retracted"));
     if (candidate.possible_duplicate_of.length) labels.append(el(doc, "span", "label", "Possible duplicate"));
     if (candidate.conflicts.length) labels.append(el(doc, "span", "label", "Metadata disagreement"));
@@ -199,7 +230,10 @@
     if (run.transport === "fixture") {
       target.append(el(doc, "p", "discovery-synthetic",
         "Synthetic fixture data for interface testing. These are not real scholarly records."));
+    } else if (run.transport === "https") {
+      target.append(el(doc, "p", "discovery-live", liveText(run)));
     }
+    target.append(el(doc, "p", "discovery-separation", SEPARATION));
     var outcomes = el(doc, "ul", "discovery-outcomes");
     run.outcomes.forEach(function (o) { outcomes.append(el(doc, "li", "outcome-" + o.status, outcomeText(o))); });
     target.append(outcomes);
@@ -244,7 +278,7 @@
   }
 
   var api = {renderSearch: renderSearch, filterCandidates: filterCandidates, outcomeText: outcomeText,
-    doiHref: doiHref, safeHttps: safeHttps};
+    doiHref: doiHref, safeHttps: safeHttps, statusMessage: statusMessage};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (host) host.SCResearchDiscovery = api;
 })(typeof window !== "undefined" ? window : null);

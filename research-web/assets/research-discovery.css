@@ -1,6 +1,8 @@
 /* RH-08D-02: Discover results — candidates, source inspection, provenance and the disabled Library intake */
 .discovery-results{display:block}
 .discovery-synthetic{padding:10px 14px;background:#fbefd9;border-left:3px solid #9a6a12;color:#4d3a12;font-size:13px;font-weight:700}
+.discovery-live{padding:10px 14px;background:#e3f0ee;border-left:3px solid #24736e;color:#1d3f3c;font-size:13px;font-weight:700}
+.discovery-separation{margin:8px 0 0;font-size:13px;color:#2c4851}
 .discovery-outcomes{list-style:none;padding:0;margin:12px 0;display:grid;gap:4px;font-size:13px;color:#2c4851}
 .discovery-outcomes .outcome-ok::before{content:"● ";color:#24736e}
 .discovery-outcomes li:not(.outcome-ok)::before{content:"● ";color:#9a6a12}
