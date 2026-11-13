@@ -130,13 +130,18 @@ def test_unknown_providers_and_bad_queries_are_refused():
         da.discover("ab")
 
 
-def test_only_the_prepared_https_module_has_network_code():
-    # RH-08D-02 adds https_transport; no other adapter module may touch the network or import it.
+def test_only_the_https_module_has_network_code():
+    # RH-08D-02 adds https_transport; no other adapter module may touch the network. RH-08D-03: only the
+    # guarded transport in live.py may import it, lazily, when a staging search builds it.
     package = ROOT / "research-api/app/discovery_adapters"
-    source = "\n".join(p.read_text() for p in package.glob("*.py") if p.name != "https_transport.py")
+    source = "\n".join(p.read_text() for p in package.glob("*.py") if p.name not in ("https_transport.py", "live.py"))
     for forbidden in ("import urllib.request", "urlopen", "import requests", "import httpx", "http.client",
                       "socket.", "aiohttp", "from .https_transport", "import https_transport"):
         assert forbidden not in source, forbidden
+    live = (package / "live.py").read_text()
+    assert live.count("from .https_transport import HttpsTransport") == 1
+    for forbidden in ("import urllib.request", "urlopen", "import requests", "import httpx", "http.client", "socket."):
+        assert forbidden not in live, forbidden
 
 
 # --- normalisation, provenance and classification ----------------------------------------------------------

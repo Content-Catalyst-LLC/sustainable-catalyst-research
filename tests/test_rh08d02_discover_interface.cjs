@@ -55,7 +55,7 @@ test("every candidate is labelled unreviewed and offers source inspection", () =
   const {host} = render();
   for (const card of byClass(host, "discovery-candidate")) {
     assert.match(card.id, /^cand-[0-9a-f]{24}$/);
-    assert.equal(byClass(card, "discovery-labels")[0].children[0].textContent, "Discovered · unreviewed");
+    assert.equal(byClass(card, "discovery-labels")[0].children[0].textContent, "Discovered — unreviewed");
     const inspect = byClass(card, "discovery-inspect")[0];
     assert.equal(inspect.tagName, "DETAILS");
     assert.equal(byTag(inspect, "summary")[0].textContent, "Inspect source and provenance");

@@ -50,7 +50,8 @@ class FakeResponse:
         return self._headers
 
     def read(self, limit):
-        return self._body[:limit]
+        chunk, self._body = self._body[:limit], self._body[limit:]
+        return chunk
 
 
 class FakeConnection:
@@ -219,32 +220,37 @@ client = TestClient(app)
 
 def test_readiness_reports_prepared_but_inactive():
     data = client.get("/api/research/v1/discovery/readiness").json()
-    assert data["stage"] == "RH-08D-02" and data["status"] == "not_activated"
+    assert data["stage"] == discovery.STAGE and data["status"] == "not_activated"
     assert data["transport_prepared"] is True
     for key in ("external_retrieval_enabled", "saved_searches_enabled", "library_intake_enabled",
                 "publication_enabled", "research_evidence_promotion_enabled"):
         assert data[key] is False, key
 
 
-def test_live_providers_are_not_authorized_and_the_transport_is_never_built(monkeypatch):
-    assert discovery.LIVE_PROVIDERS_AUTHORIZED is False
-    monkeypatch.setattr(discovery, "live_transport", lambda: pytest.fail("live transport constructed"))
+def test_live_providers_are_disabled_by_default_and_the_transport_is_never_built(monkeypatch):
+    for name in ("RESEARCH_DISCOVERY_MODE", "RESEARCH_DISCOVERY_PROVIDERS", "RESEARCH_DISCOVERY_CONTACT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(discovery, "live_transport", lambda state: pytest.fail("live transport constructed"))
     response = client.post("/api/research/v1/discovery/search", json={"query": QUERY})
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "DISCOVERY_PROVIDERS_DISABLED"
-    assert response.json()["detail"]["stage"] == "RH-08D-02"
+    assert response.json()["detail"]["stage"] == discovery.STAGE
     assert all(p["enabled"] is False for p in client.get("/api/research/v1/discovery/providers").json()["providers"])
 
 
-def test_live_gate_is_a_reviewed_code_constant_not_configuration():
-    source = (ROOT / "research-api/app/discovery.py").read_text()
-    assert "LIVE_PROVIDERS_AUTHORIZED = False" in source
-    assert "LIVE_PROVIDERS_AUTHORIZED = os" not in source and "getenv(\"RESEARCH_DISCOVERY_LIVE" not in source
+def test_production_discovery_is_a_reviewed_code_constant_not_configuration():
+    source = (ROOT / "research-api/app/discovery_adapters/activation.py").read_text()
+    assert "PRODUCTION_DISCOVERY_AUTHORIZED = False" in source
+    assert "PRODUCTION_DISCOVERY_AUTHORIZED = os" not in source
 
 
 def gated(monkeypatch, transport):
-    monkeypatch.setattr(discovery, "LIVE_PROVIDERS_AUTHORIZED", True)
-    monkeypatch.setattr(discovery, "live_transport", lambda: transport)
+    # RH-08D-03: an active staging configuration, with the transport replaced by an offline one.
+    monkeypatch.setenv("RESEARCH_ENV", "staging")
+    monkeypatch.setenv("RESEARCH_DISCOVERY_MODE", "staging")
+    monkeypatch.setenv("RESEARCH_DISCOVERY_PROVIDERS", "openalex,crossref")
+    monkeypatch.setenv("RESEARCH_DISCOVERY_CONTACT", "discovery-ops@example.org")
+    monkeypatch.setattr(discovery, "live_transport", lambda state: transport)
     monkeypatch.setattr(discovery, "_LIMITER", da.RateLimiter(rate_per_second=10, clock=lambda: 0.0, sleep=lambda s: None))
 
 
@@ -252,8 +258,8 @@ def test_the_gated_path_returns_a_typed_unsaved_run(monkeypatch):
     def reply(name):
         return da.ProviderResponse(status=200, body=(FIX / name).read_bytes())
     gated(monkeypatch, da.FixtureTransport({
-        openalex.build_request(QUERY, rows=25).key(): reply("openalex-works.json"),
-        crossref.build_request(QUERY, rows=25).key(): reply("crossref-works.json")}))
+        openalex.build_request(QUERY, rows=25, contact="discovery-ops@example.org").key(): reply("openalex-works.json"),
+        crossref.build_request(QUERY, rows=25, contact="discovery-ops@example.org").key(): reply("crossref-works.json")}))
     response = client.post("/api/research/v1/discovery/search", json={"query": QUERY})
     assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
     data = response.json()
@@ -271,7 +277,8 @@ def test_the_gated_path_refuses_sources_without_adapters(monkeypatch):
 
 
 def test_the_gated_path_reports_provider_failures_without_candidates(monkeypatch):
-    gated(monkeypatch, da.FixtureTransport({openalex.build_request(QUERY, rows=25).key(): da.TransportTimeout("x")}))
+    gated(monkeypatch, da.FixtureTransport({
+        openalex.build_request(QUERY, rows=25, contact="discovery-ops@example.org").key(): da.TransportTimeout("x")}))
     data = client.post("/api/research/v1/discovery/search", json={"query": QUERY, "provider": "openalex"}).json()
     assert data["run"]["outcomes"][0]["status"] == "unavailable" and data["run"]["candidates"] == []
 

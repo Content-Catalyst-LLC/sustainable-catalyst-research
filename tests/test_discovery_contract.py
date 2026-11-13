@@ -25,7 +25,7 @@ def test_discovery_readiness_does_not_claim_live_retrieval():
     response = client.get("/api/research/v1/discovery/readiness")
     assert response.status_code == 200
     data = response.json()
-    assert data["stage"] == "RH-08D-02"
+    assert data["stage"] == "RH-08D-03"
     assert data["status"] == "not_activated"
     assert data["external_retrieval_enabled"] is False
     assert data["saved_searches_enabled"] is False
@@ -71,7 +71,7 @@ def test_frontend_contains_first_party_discovery_views():
     assert 'id="discovery-form"' in html
     assert 'id="workspace-discover-link"' in html
     assert "initializeArticleDiscoveryContext" in js
-    assert "Discovery adapters are not active yet" in js
+    assert "SCResearchDiscovery.statusMessage(response.status, detail)" in js
     assert "candidate.source_url" in js
     assert "title.textContent" in js
     assert "candidate.title ||" in js

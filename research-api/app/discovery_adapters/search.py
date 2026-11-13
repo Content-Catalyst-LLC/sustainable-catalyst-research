@@ -6,7 +6,8 @@ from . import crossref, openalex
 from .common import Rejected, canonical, classify, query_hash, request_hash, sha256, title_key
 from .models import Candidate, CandidateSource, DiscoveryRun, FieldConflict, ProviderOutcome
 from .ratelimit import RateLimiter, RetryPolicy
-from .transport import DisabledTransport, ProviderDisabled, TransportError, TransportTimeout
+from .transport import (TRANSPORT_CODES, DisabledTransport, ProviderDisabled, ProviderHeld, TransportError,
+                        TransportTimeout)
 
 PROVIDER_ADAPTERS = {"openalex": openalex, "crossref": crossref}
 ORDER = tuple(PROVIDER_ADAPTERS)  # merge precedence: earlier providers supply the first value of a field
@@ -57,10 +58,13 @@ def _run_provider(provider, query, transport, limiter, retry, publication_year, 
             status, code, wait_hint, data = classify(response)
         except ProviderDisabled:
             return ProviderOutcome(provider=provider, status="disabled", attempts=0, code="transport-disabled"), []
+        except ProviderHeld as held:  # a policy refused before sending, so this attempt made no request
+            return ProviderOutcome(provider=provider, status=held.status, attempts=attempt - 1, code=held.code,
+                                   retry_after_seconds=held.retry_after), []
         except TransportTimeout:
             status, code, wait_hint = "unavailable", "timeout", None
-        except TransportError:
-            status, code, wait_hint = "failed", "transport-error", None
+        except TransportError as error:
+            status, code, wait_hint = "failed", str(error) if str(error) in TRANSPORT_CODES else "transport-error", None
         if status not in retry.retry_on:
             break
         wait = retry.wait_before(attempt, wait_hint)
@@ -74,7 +78,10 @@ def _run_provider(provider, query, transport, limiter, retry, publication_year, 
     if raw is None:
         return ProviderOutcome(provider=provider, status="invalid_response", attempts=attempt, code="unexpected-shape"), []
     retrieved, reasons, items = now(), Counter(), []
-    for position, record in enumerate(raw):
+    limit = max(1, min(rows, adapter.MAX_ROWS))
+    if len(raw) > limit:  # never more records than were asked for, whatever the provider returns
+        reasons["beyond-requested-rows"] += len(raw) - limit
+    for position, record in enumerate(raw[:limit]):
         try:
             fields = adapter.normalize(record)
         except Rejected as reason:

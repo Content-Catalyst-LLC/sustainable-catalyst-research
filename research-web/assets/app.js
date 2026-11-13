@@ -291,17 +291,21 @@ async function runDiscovery(event) {
       credentials: "omit",
       cache: "no-store"
     });
-    if (response.status === 503) {
-      renderDiscoveryCandidates([]);
-      discoveryMessage("Discovery adapters are not active yet. No external search was performed and nothing was saved.");
+    if (!response.ok) {
+      // RH-08D-03: a refused search (disabled, source not enabled, busy) explains itself; nothing ran.
+      let detail = null;
+      try { detail = (await response.json()).detail; } catch (_) { /* No readable error body. */ }
+      get("discovery-results").replaceChildren();
+      discoveryMessage(window.SCResearchDiscovery
+        ? window.SCResearchDiscovery.statusMessage(response.status, detail)
+        : "Discovery is currently unavailable. No external search was performed and nothing was saved.");
       return;
     }
-    if (!response.ok) throw Error("Discovery service error");
     const data = await response.json();
     // RH-08D-02: a typed discovery run renders through research-discovery.js (sources, provenance, duplicates).
     if (data && data.run && window.SCResearchDiscovery) window.SCResearchDiscovery.renderSearch(get("discovery-results"), data, document);
     else renderDiscoveryCandidates(data.candidates || []);
-    discoveryMessage("Search returned bibliographic candidates only. Verify source identity, rights, and evidence before using results.");
+    discoveryMessage("Search returned discovered, unreviewed bibliographic candidates only. Verify source identity, rights, and evidence before using results.");
   } catch (_) {
     renderDiscoveryCandidates([]);
     discoveryMessage("Discovery is currently unavailable. No results were generated or saved.");

@@ -1,6 +1,12 @@
 {
  "schema": "sc-research-discovery-search/1.0",
- "stage": "RH-08D-02",
+ "stage": "RH-08D-03",
+ "separation": {
+  "tier": "discovered-metadata",
+  "library_reviewed": false,
+  "research_evidence": false,
+  "statement": "Discovered, unreviewed metadata. Not reviewed by the Library and not approved Research evidence."
+ },
  "run": {
   "schema": "sc-research-discovery-run/1.0",
   "adapter_version": "rh-08d-01/1.0",

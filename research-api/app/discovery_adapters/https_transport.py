@@ -1,7 +1,7 @@
-"""RH-08D-02: the prepared HTTPS transport for OpenAlex and Crossref. Built and tested, never wired in.
+"""RH-08D-02/03: the HTTPS transport for OpenAlex and Crossref.
 
-Nothing in this package constructs it. ``app.discovery`` would do so only when ``LIVE_PROVIDERS_AUTHORIZED`` is
-true, and that constant stays false until the owner separately authorises live provider calls.
+Nothing in this package constructs it. ``live.GuardedTransport`` builds one per provider, and only when
+``activation`` reports an active staging configuration; by default discovery is disabled.
 
 Each request is checked before any network activity:
 * the provider's fixed host only (``api.openalex.org`` / ``api.crossref.org``), ``https``, port 443, the
@@ -10,12 +10,14 @@ Each request is checked before any network activity:
   multicast), and the connection goes to the vetted address with TLS verified against the host name, so a
   DNS answer cannot be swapped between the check and the connect;
 * TLS 1.2 or later with certificate and host-name verification; no proxy, cookies or credentials;
-* redirects are not followed, the body is capped, and only rate-limit and content-type headers are kept.
+* redirects are not followed, the body is capped and must arrive within ``total_timeout`` seconds, and only
+  rate-limit and content-type headers are kept.
 """
 import http.client
 import ipaddress
 import socket
 import ssl
+import time
 from urllib.parse import urlencode, urlsplit
 
 from .models import ProviderRequest, ProviderResponse
@@ -26,6 +28,7 @@ ALLOWED_PATH = "/works"
 KEPT_HEADERS = {"content-type", "retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-interval",
                 "x-rate-limit-limit", "x-rate-limit-interval"}
 MAX_BYTES = 2_000_000
+CHUNK = 65_536
 
 
 def tls_context() -> ssl.SSLContext:
@@ -58,12 +61,13 @@ class HttpsTransport:
     kind = "https"
     external = True
 
-    def __init__(self, *, user_agent: str, timeout: float = 10.0, max_bytes: int = MAX_BYTES,
-                 resolver=_system_resolver, connector=_connect):
-        if not 0 < timeout <= 30 or not 0 < max_bytes <= 10_000_000:
-            raise ValueError("timeout must be in (0, 30] seconds and max_bytes in (0, 10 MB]")
-        self.user_agent, self.timeout, self.max_bytes = user_agent, timeout, max_bytes
-        self._resolve, self._connect = resolver, connector
+    def __init__(self, *, user_agent: str, timeout: float = 10.0, total_timeout: float | None = None,
+                 max_bytes: int = MAX_BYTES, resolver=_system_resolver, connector=_connect, clock=time.monotonic):
+        total_timeout = 2 * timeout if total_timeout is None else total_timeout
+        if not 0 < timeout <= 30 or not timeout <= total_timeout <= 60 or not 0 < max_bytes <= 10_000_000:
+            raise ValueError("timeout must be in (0, 30] s, total_timeout in [timeout, 60] s and max_bytes in (0, 10 MB]")
+        self.user_agent, self.timeout, self.total_timeout, self.max_bytes = user_agent, timeout, total_timeout, max_bytes
+        self._resolve, self._connect, self._clock = resolver, connector, clock
 
     def target(self, request: ProviderRequest) -> tuple[str, str]:
         """(host, path with query) for an allowed request; raises TransportError otherwise. No network."""
@@ -87,8 +91,23 @@ class HttpsTransport:
                 raise TransportError("non-public-address")
         return addresses[0]
 
+    def _read(self, response, deadline: float) -> bytes:
+        """The body in chunks, refused once it passes the cap or the deadline (a socket timeout alone
+        bounds each read, not a slowly trickled body)."""
+        body = bytearray()
+        while True:
+            chunk = response.read(CHUNK)
+            if not chunk:
+                return bytes(body)
+            body += chunk
+            if len(body) > self.max_bytes:
+                raise TransportError("response-too-large")
+            if self._clock() > deadline:
+                raise TransportTimeout("timeout")
+
     def send(self, request: ProviderRequest) -> ProviderResponse:
         host, path = self.target(request)
+        deadline = self._clock() + self.total_timeout
         address = self.vetted_address(host)
         connection = self._connect(host, address, self.timeout)
         try:
@@ -99,16 +118,18 @@ class HttpsTransport:
             encoding = (response.getheader("Content-Encoding") or "identity").strip().lower()
             if encoding != "identity":
                 raise TransportError("unexpected-content-encoding")
-            body = response.read(self.max_bytes + 1)
-            if len(body) > self.max_bytes:
-                raise TransportError("response-too-large")
+            body = self._read(response, deadline)
             headers = {name: value for name, value in response.getheaders() if name.lower() in KEPT_HEADERS}
             return ProviderResponse(status=response.status, headers=headers, body=body)
         except (TimeoutError, socket.timeout) as error:
             raise TransportTimeout("timeout") from error
-        except TransportError:
+        except (TransportError, TransportTimeout):
             raise
-        except (ssl.SSLError, http.client.HTTPException, OSError, ValueError) as error:
-            raise TransportError(type(error).__name__) from error
+        except ssl.SSLError as error:
+            raise TransportError("tls-failure") from error
+        except (http.client.HTTPException, ValueError) as error:
+            raise TransportError("protocol-error") from error
+        except OSError as error:
+            raise TransportError("connection-failure") from error
         finally:
             connection.close()
