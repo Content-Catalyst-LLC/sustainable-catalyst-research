@@ -88,6 +88,7 @@ def readiness():
         "enabled_providers": list(state.providers),
         "contact_configured": state.contact is not None,
         "openalex_api_key_configured": state.openalex_key is not None,
+        "egress": ("proxy" if state.egress_proxy else "direct") if state.active else None,
         "production_discovery_authorized": discovery_activation.PRODUCTION_DISCOVERY_AUTHORIZED,
         "saved_searches_enabled": False,
         "article_private_context_enabled": False,
@@ -101,7 +102,8 @@ def readiness():
 
 def live_transport(state: discovery_activation.Activation) -> GuardedTransport:
     """The guarded HTTPS transport for one search. Only reached when activation is active."""
-    return GuardedTransport(_GUARD, state.providers, https_factory(state.user_agent, openalex_key=state.openalex_key))
+    return GuardedTransport(_GUARD, state.providers, https_factory(state.user_agent, openalex_key=state.openalex_key,
+                                                               proxy=state.egress_proxy))
 
 
 def search_response(request: DiscoverySearchRequest, transport, *, enabled=None, contact=None, limiter=None,
