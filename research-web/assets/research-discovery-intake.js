@@ -280,7 +280,8 @@
       function refresh() {
         return client.list().then(function (data) {
           renderSavedList(listHost, data.items || [], articles, doc, controller);
-        }, function (err) { state.textContent = err.message; });
+          return true;
+        }, function (err) { state.textContent = err.message; return false; });
       }
       controller = {
         signedIn: client.signedIn, isOwner: client.isOwner,
@@ -324,10 +325,16 @@
           client.setCredentials({token: token.value, owner: owner.value, actor: actor.value, attestation: attestation.value});
         } catch (err) { state.textContent = err.message; return; }
         token.value = "";
+        // A new credential never shows the previous session's sources, and one the server rejects is not kept.
+        listHost.replaceChildren();
+        articles = [];
         state.textContent = "Loading your saved sources…";
         client.articles().then(function (data) { articles = data.items || []; }, function () { articles = []; })
-          .then(refresh).then(function () {
-            if (client.signedIn()) state.textContent = "Signed in for this session. Search to save new sources.";
+          .then(refresh).then(function (ok) {
+            if (ok) { state.textContent = "Signed in for this session. Search to save new sources."; return; }
+            client.clear();
+            attestation.value = "";
+            state.textContent += " The credential was not kept; nothing was loaded.";
           });
       });
 

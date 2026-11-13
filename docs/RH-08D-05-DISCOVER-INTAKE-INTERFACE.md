@@ -1,6 +1,6 @@
 # RH-08D-05 — Discover Interface and Governed Intake Integration
 
-**Status:** implementation draft. **Not enabled anywhere.** It depends on RH-08D-04, including the PR #10 review fixes and migration `0014`.
+**Status:** merged to `main` (PR #11, after PR #10). **Not enabled anywhere.** It depends on RH-08D-04, including the PR #10 review fixes and migration `0014`.
 
 **What it adds** to the Discover page, for the RH-08D-04 governed intake API:
 - **authenticated candidate saving:** "Save to my sources" on a search result;
@@ -63,7 +63,7 @@ Dismissed sources stay listed with their provenance. Saving them again restores 
 
 ## Tests
 
-`tests/test_rh08d05_discover_intake.cjs` (Node, offline, fake DOM and fake fetch, 12 tests) covers:
+`tests/test_rh08d05_discover_intake.cjs` (Node, offline, fake DOM and fake fetch, 13 tests) covers:
 - credentials sent only as headers, with `credentials: "omit"` and no caching;
 - no storage APIs;
 - path validation;
@@ -76,7 +76,8 @@ Dismissed sources stay listed with their provenance. Saving them again restores 
 - association link and unlink;
 - dismissed sources;
 - text-only rendering;
-- the saved-status contract with `discovery_intake.SAVED`.
+- the saved-status contract with `discovery_intake.SAVED`;
+- a rejected credential is not kept and clears the previous session's sources.
 
 ## Local acceptance (2026-11-13)
 
@@ -102,6 +103,70 @@ Dismissed sources stay listed with their provenance. Saving them again restores 
 - no console errors.
 
 **Bug found and fixed:** the panel first expected the status `saved` while the API returns `saved-unreviewed`, so every source showed as dismissed. A contract test now pins the value.
+
+## Post-merge acceptance (2026-11-13, `main` at `4f35b00`)
+
+**Checks rerun on the merged code:**
+- Node: 61 passed. Python: 594 passed. Public source check: 0 findings.
+- Strict PostgreSQL cycle on the CI image: upgrade to `0014`, storage acceptance and its re-run, downgrade to base, upgrade. Pass.
+- Populated `0013` → `0014` upgrade and downgrade: pass.
+
+**Chromium, same loopback harness, driving the real page:**
+- 4 saves, a link, a proposal (disabled until acknowledged, then "not sent") and a dismissal, in that order;
+- `localStorage`, `sessionStorage` and cookies empty;
+- the credential not present in the DOM;
+- another owner sees 0 sources.
+
+**Server refusals, checked directly:**
+- no credential: 401;
+- wrong credential: 401;
+- acting editor without an attestation: 403;
+- another owner listing: empty;
+- another owner fetching by id: 404.
+
+**Defect found and fixed** (PR "RH-08D-05: sign-in feedback"): when the server rejected a credential, the panel still said "Signed in for this session" and kept the previous session's list on screen. The server had refused the requests, so no data crossed owners, but the page misreported it. Now a new sign-in clears the list first. A rejected credential is dropped and reported as "not kept; nothing was loaded". A test covers this.
+
+## Security limitations of the temporary browser-memory credential
+
+The staging form exists only because certified per-user identity (SC-UP-01) does not exist yet. These are its limitations:
+
+1. **It is a service credential, not a user credential.** The server accepts it together with any `X-SC-Owner-Scope`, so whoever holds it can act as **any owner**. That covers Research convergence and editorial writes as well as intake. Owner isolation protects owners from each other only for callers who do *not* hold the credential.
+   - **Rule:** only the staging operator holds it. It is never given to an editor or tester.
+   - Editor scenarios are run by the operator with Workspace-signed attestations.
+2. **No per-person accountability.** Audit events record the asserted owner and actor scopes. For the owner path, the person typing the credential is not otherwise identified.
+3. **Exposure in the page.** While the credential is in the page's memory, any script running in the page could read it: an XSS bug, a malicious browser extension, or someone with devtools on an unlocked machine.
+   - Mitigations: the CSP allows only same-origin scripts with no inline script, all values are rendered as text, the credential is never written to storage or the DOM, the token field is cleared once accepted, and "Forget credential" or a reload drops it.
+   - **Residual risk:** browser extensions and a compromised workstation cannot be mitigated by the page.
+4. **No expiry or revocation per session.** The credential is valid until the server's credential file is replaced.
+   - **Rule:** each isolated staging project generates its own credential at deployment and destroys it at teardown. It is never reused across projects or environments.
+5. **Typing and clipboard exposure.** Password managers, clipboard history and screen sharing can capture it. Paste it only on a private screen, and clear the clipboard afterwards.
+6. **CSRF is not a concern for this design**, because no cookie or ambient credential is used. The SC-UP-01 transition must keep that property, or add CSRF protection if it introduces cookies.
+
+**Conclusion:** acceptable for an isolated staging acceptance run by the operator on synthetic or owner-approved data. **Not acceptable for production or for distribution to users.** Production intake stays refused in code (`PRODUCTION_INTAKE_AUTHORIZED = False`).
+
+## Transition to certified Workspace sign-in (SC-UP-01)
+
+**Target:** the browser never holds the Research service credential.
+1. **Workspace signs in the person** (certified identity, with MFA per Workspace policy). Workspace issues a short-lived, audience-bound (`research`), per-person signed assertion: subject, owner scope, role, project grants, expiry of minutes, and a nonce or `jti`. This extends the existing editor-attestation format and its verification (`editorial.resolve_actor`) to owners as well.
+2. **Research verifies the assertion** with the Workspace public key, as it already does for editor attestations:
+   - The owner scope comes **from the signed assertion**, never from a client header.
+   - `X-SC-Owner-Scope`, with the service credential, stays only for server-to-server calls.
+3. **Session handling**, as either:
+   - a same-origin, `HttpOnly`, `Secure`, `SameSite=Strict` session cookie set by a Research sign-in exchange, with a CSRF token on writes; or
+   - the assertion held in memory and refreshed from Workspace.
+
+   Neither exposes the service credential to scripts.
+4. **Audit** records the assertion's subject and `jti`, giving per-person accountability.
+5. **Revocation** through Workspace (short expiry plus a deny list) without replacing a shared credential.
+6. **Removal:** the credential form and `createClient().setCredentials` are deleted, and the client sends the Workspace assertion instead. The panel's visibility, Save action and proposal rules stay unchanged.
+
+**Acceptance criteria before production intake can be considered** (a separate, reviewed change to `PRODUCTION_INTAKE_AUTHORIZED`):
+- no service credential in any browser path;
+- owner scope only from signed assertions;
+- negative tests for an expired, wrong-audience, wrong-owner or replayed assertion;
+- CSRF tests if cookies are used;
+- per-person audit;
+- a staged rollout with owner sign-off.
 
 ## Not authorised by this stage
 
