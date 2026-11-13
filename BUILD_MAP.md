@@ -23,6 +23,7 @@ This file intentionally contains only **public-safe product capabilities** and g
 | Discovery adapters (OpenAlex, Crossref) | `research-api/app/discovery_adapters/` | Typed, offline-tested; no network transport, nothing published |
 | Discover interface and prepared HTTPS transport | `research-web/assets/research-discovery.js`, `research-api/app/discovery_adapters/https_transport.py`, `library_intake.py` | Synthetic-fixture tested; live providers, saving, Library submission and publication disabled |
 | Controlled live discovery (OpenAlex, Crossref) | `research-api/app/discovery_adapters/activation.py`, `live.py`, `scripts/discovery_staging_acceptance.py` | Disabled by default; staging-only activation with provider budgets, circuit breakers and deadlines; production, saving, Library submission and publication disabled |
+| Governed discovery intake (RH-08D-04) | `research-api/app/discovery_intake.py`, `discovery_intake_store.py`, migration `0013_discovery_intake` | Disabled by default: owner-scoped saved candidates with server-held provenance, deduplication, article associations and recorded (never sent) Library proposals; production, Library submission and publication disabled |
 | Public Research frontend | `research-web/` | Under development |
 | Anonymous-only API bridge | `research-web/assets/research-workbench-bridge.js` | Disabled by default |
 | Isolated deployment examples | `infrastructure/` | Generic templates; no production secrets |
