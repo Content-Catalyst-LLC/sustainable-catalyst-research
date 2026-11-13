@@ -126,6 +126,28 @@ Dismissed sources stay listed with their provenance. Saving them again restores 
 
 **Defect found and fixed** (PR "RH-08D-05: sign-in feedback"): when the server rejected a credential, the panel still said "Signed in for this session" and kept the previous session's list on screen. The server had refused the requests, so no data crossed owners, but the page misreported it. Now a new sign-in clears the list first. A rejected credential is dropped and reported as "not kept; nothing was loaded". A test covers this.
 
+## Isolated staging acceptance findings (Phase 2A, 2026-11-13)
+
+**F1: one damaged saved record made the owner's whole list fail (fixed).**
+- **Seen:** a synthetic record seeded with empty stored metadata made `GET /intake/candidates` and the record view return 500 for that owner. No release writes such a record; the staging fixture did.
+- **Fix:** each record is read on its own (`discovery_intake.readable_review`).
+  - An unreadable record is still listed, with the single blocking issue `metadata-invalid`.
+  - It cannot be proposed for Library review (422). It can still be dismissed, linked and unlinked.
+  - The other records are unaffected. The server log names the record id only, never its metadata.
+  - The page shows a note instead of the proposal form.
+- **Tests:** four kinds of damaged metadata, the HTTP list and view, the proposal refusal, and the page.
+
+**F2: a revoked editor could keep writing until the attestation expired (bounded now; full fix in SC-UP-01).**
+- **Seen:** after the owner revoked an editor's grant in Workspace, the attestation issued before the revocation was still accepted for up to its 1-hour lifetime. Workspace correctly refused a new one.
+- **Why:** Research verifies the signature, owner, grantee, role and expiry, but cannot see a revocation.
+- **Now enforced in Research** (`editorial.require_fresh_for_write`), for editorial and intake routes alike:
+  - an editor **write** (any method other than GET, HEAD or OPTIONS) needs an attestation issued in the last `EDITOR_WRITE_WINDOW_SECONDS` (**5 minutes**); otherwise 403, "request a new one from Workspace";
+  - since Workspace issues no attestation for a revoked grant, **a revoked editor stops writing at most 5 minutes after the attestation was issued**;
+  - reads still accept the attestation until it expires (at most 1 hour);
+  - an attestation dated in the future (beyond 60 s of clock skew), valid for longer than Workspace's 1-hour lifetime, or without a valid issue time is refused.
+- **Tests:** a backdated attestation, like the revoked editor's in Phase 2A, still reads but cannot associate, dissociate or save; editorial revisions likewise. An attestation inside the window still writes.
+- **Effect on editors:** an editor whose attestation is older than 5 minutes gets a new one from Workspace before changing anything.
+
 ## Security limitations of the temporary browser-memory credential
 
 The staging form exists only because certified per-user identity (SC-UP-01) does not exist yet. These are its limitations:
@@ -157,7 +179,18 @@ The staging form exists only because certified per-user identity (SC-UP-01) does
 
    Neither exposes the service credential to scripts.
 4. **Audit** records the assertion's subject and `jti`, giving per-person accountability.
-5. **Revocation** through Workspace (short expiry plus a deny list) without replacing a shared credential.
+5. **Revocation (priority requirement, from Phase 2A F2).** Revocation must reach Research without waiting for expiry:
+   - **R1, done:** the 5-minute editor write window above.
+   - **R2, Workspace:** shorten the editor attestation lifetime to the write window, so reads stop too.
+   - **R3, Workspace → Research:** a signed grant revocation notice (`grantId`, owner, grantee, revocation time, sequence), delivered server to server and verified with the Workspace key, like source-rights notices.
+     - Research records each notice append-only and refuses **any** request with an attestation whose `grantId` is revoked, reads included.
+   - **R4, fail closed:** Workspace also sends a periodic signed list of each owner's active grants. If none newer than the agreed interval is held, editor writes are refused.
+   - **Acceptance tests:**
+     - a revoked editor is refused on the next request after the notice;
+     - a notice for another owner has no effect;
+     - an unsigned, forged or replayed notice is refused;
+     - a stale grant list stops editor writes;
+     - the owner is unaffected.
 6. **Removal:** the credential form and `createClient().setCredentials` are deleted, and the client sends the Workspace assertion instead. The panel's visibility, Save action and proposal rules stay unchanged.
 
 **Acceptance criteria before production intake can be considered** (a separate, reviewed change to `PRODUCTION_INTAKE_AUTHORIZED`):

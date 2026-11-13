@@ -19,8 +19,10 @@
     "retraction-status-unknown": "Retraction status is unknown",
     "no-doi": "No DOI is recorded",
     "metadata-conflict": "Source records disagree on metadata",
-    "possible-duplicate": "It may duplicate another saved source"
+    "possible-duplicate": "It may duplicate another saved source",
+    "metadata-invalid": "Its stored metadata cannot be read"
   };
+  var METADATA_INVALID = "metadata-invalid"; // discovery_intake.METADATA_INVALID
   var NOT_SENT = "Recorded for Library review — not sent. The Library intake endpoint is not enabled; " +
     "this source is still unreviewed and is not Research evidence.";
   var SEPARATION = "Saved sources are discovered, unreviewed leads. Saving, linking to an article or proposing for " +
@@ -131,6 +133,11 @@
     }
     if (item.status !== SAVED) return box;
     var issues = (item.review && item.review.blockingIssues) || [];
+    if (issues.indexOf(METADATA_INVALID) !== -1) {
+      box.append(el(doc, "p", "intake-note", "This source's stored metadata cannot be read, so it cannot be proposed " +
+        "for Library review. Your other saved sources are unaffected."));
+      return box;
+    }
     var form = el(doc, "fieldset", "intake-proposal-form");
     form.append(el(doc, "legend", "", "Propose for Library review"));
     var boxes = [];

@@ -429,6 +429,98 @@ def test_http_intake_refuses_production_even_with_the_flag(http, monkeypatch):
     assert r.status_code == 503 and r.json()["detail"]["reason"] == "production-not-authorized"
 
 
+# --- RH-08D-05 F2: a revoked editor stops writing within the write window ---------------------------------
+
+
+def _att(**kw):
+    return base64.urlsafe_b64encode(json.dumps(attestation(**kw)).encode()).decode().rstrip("=")
+
+
+def test_a_revoked_editor_cannot_keep_writing_past_the_write_window(http):
+    """Phase 2A F2: editor-2's grant was revoked after its attestation was issued, and Research accepted it until
+    expiry. Workspace issues no new attestation for a revoked grant, so writes now stop once the window has passed."""
+    client, _ = http
+    owner = {"Authorization": "Bearer staging-secret", "X-SC-Owner-Scope": OWNER}
+    c = cand()
+    sid = client.post(BASE + "/intake/candidates", json={"run_handle": di.HANDLES.put([c]),
+                                                         "candidate_id": c.candidate_id}, headers=owner).json()["id"]
+    editor = {**owner, "X-SC-Actor-Scope": "workspace-user:ed"}
+    link = f"{BASE}/intake/candidates/{sid}/associations/erw-study"
+    inside = ed.EDITOR_WRITE_WINDOW_SECONDS / 60 - 1
+    assert client.post(link, headers={**editor, "X-SC-Editor-Attestation": _att(issued_ago=inside)}).status_code == 200
+    stale = {**editor, "X-SC-Editor-Attestation": _att(issued_ago=ed.EDITOR_WRITE_WINDOW_SECONDS / 60 + 1, minutes=60)}
+    for path in (link + "/remove", link):
+        r = client.post(path, headers=stale)
+        assert r.status_code == 403 and "request a new one from Workspace" in r.text
+    r = client.post(BASE + "/intake/candidates", json={"run_handle": di.HANDLES.put([c]),
+                                                       "candidate_id": c.candidate_id}, headers=stale)
+    assert r.status_code == 403
+    assert client.get(BASE + "/intake/candidates", headers=stale).status_code == 200  # reads until expiry
+    assert client.get(BASE + "/intake/candidates", headers=owner).json()["items"][0]["associations"] == [
+        {"entry": "erw-study", "relation": "related-candidate"}]  # nothing the stale attestation tried was applied
+
+
+# --- RH-08D-05 F1: one damaged record never fails the owner's list ------------------------------------------
+
+
+def _damage(session, saved_id, metadata):
+    row = session.get(di.DiscoverySavedCandidate, saved_id)
+    row.candidate_metadata = metadata
+    session.flush()
+
+
+@pytest.mark.parametrize("metadata", [{}, {"candidate_id": "cand-x", "title": ["not", "a", "title"]},
+                                      ["not", "an", "object"], {"sources": []}])
+def test_a_damaged_record_is_flagged_and_the_rest_of_the_list_still_loads(articles, metadata, caplog):
+    s = articles
+    good = di.save_candidate(s, OWNER_ACTOR, cand())["id"]
+    bad = di.save_candidate(s, OWNER_ACTOR, cand(doi="10.1234/other", title="A second synthetic study"))["id"]
+    other = di.save_candidate(s, OTHER_ACTOR, cand())["id"]
+    _damage(s, bad, metadata)
+    items = {i["id"]: i for i in di.list_saved(s, OWNER_ACTOR)}
+    assert set(items) == {good, bad}
+    assert items[bad]["review"]["blockingIssues"] == ["metadata-invalid"]
+    assert items[good]["review"]["blockingIssues"] == [] and items[good]["title"] == cand().title
+    assert all(i["library_reviewed"] is False and i["research_evidence"] is False for i in items.values())
+    assert [i["id"] for i in di.list_saved(s, OTHER_ACTOR)] == [other]
+    assert bad in caplog.text and "Enhanced rock weathering" not in caplog.text  # the log names the id only
+
+
+def test_a_damaged_record_cannot_be_proposed_but_can_still_be_managed(articles):
+    s = articles
+    sid = di.save_candidate(s, OWNER_ACTOR, cand())["id"]
+    _damage(s, sid, {})
+    with pytest.raises(ValueError, match="cannot be read"):
+        di.propose_to_library(s, OWNER_ACTOR, sid, ["metadata-invalid"])
+    assert di.associate(s, OWNER_ACTOR, sid, "erw-study")["associations"][0]["entry"] == "erw-study"
+    assert di.dismiss(s, OWNER_ACTOR, sid)["status"] == di.DISMISSED
+    again = di.save_candidate(s, OWNER_ACTOR, cand(sources=(source(), source("r2"))))  # dedup into the damaged row
+    assert again["deduplicated"] and again["sourcesAdded"] == 1
+    assert again["review"]["blockingIssues"] == ["metadata-invalid"]
+    assert di.verify_chain(s)["valid"] is True
+
+
+def test_http_list_and_view_survive_a_damaged_record(http):
+    client, engine = http
+    owner = {"Authorization": "Bearer staging-secret", "X-SC-Owner-Scope": OWNER}
+    ids = []
+    for c in (cand(), cand(doi="10.1234/other", title="A second synthetic study")):
+        handle = di.HANDLES.put([c])
+        ids.append(client.post(BASE + "/intake/candidates", json={"run_handle": handle,
+                                                                  "candidate_id": c.candidate_id},
+                               headers=owner).json()["id"])
+    with Session(engine) as s:
+        _damage(s, ids[1], {})
+        s.commit()
+    r = client.get(BASE + "/intake/candidates", headers=owner)
+    assert r.status_code == 200, r.text
+    assert [i["review"]["blockingIssues"] for i in r.json()["items"]] == [[], ["metadata-invalid"]]
+    assert client.get(f"{BASE}/intake/candidates/{ids[1]}", headers=owner).status_code == 200
+    r = client.post(f"{BASE}/intake/candidates/{ids[1]}/library-proposal", headers=owner,
+                    json={"acknowledged_blocking_issues": ["metadata-invalid"]})
+    assert r.status_code == 422 and "cannot be read" in r.text
+
+
 def test_every_migration_revision_id_fits_the_alembic_version_column():
     """PostgreSQL stores the revision in alembic_version.version_num, a VARCHAR(32); SQLite does not enforce it."""
     import re

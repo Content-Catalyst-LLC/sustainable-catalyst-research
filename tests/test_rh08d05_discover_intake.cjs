@@ -201,6 +201,19 @@ test("the proposal is recorded only after the owner confirms exactly the blockin
   assert.deepEqual(log, [["propose", ID_A, ["no-doi", "retracted"]]]);
 });
 
+test("a source with unreadable metadata is listed with the others but offers no proposal", () => {
+  const host = new Node("div");
+  const broken = saved({id: ID_B, review: {blockingIssues: ["metadata-invalid"], retractionReported: false,
+    conflictingFields: []}});
+  intake.renderSavedList(host, [saved(), broken], [], doc, controller(true));
+  const cards = byClass(host, "intake-saved");
+  assert.equal(cards.length, 2);
+  assert.equal(byTag(cards[0], "fieldset").length, 1);
+  assert.equal(byTag(cards[1], "fieldset").length, 0);
+  assert.equal(buttonNamed(cards[1], "Record proposal (not sent)"), undefined);
+  assert.match(cards[1].textContent, /stored metadata cannot be read/);
+});
+
 test("a recorded proposal says it was not sent, and editors cannot dismiss or propose", () => {
   const host = new Node("div");
   intake.renderSavedList(host, [saved({libraryProposal: {status: "awaiting-library-endpoint", sent: false}})], [], doc,
