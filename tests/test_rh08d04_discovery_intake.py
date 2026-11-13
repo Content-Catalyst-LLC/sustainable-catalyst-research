@@ -186,10 +186,62 @@ def test_candidates_without_doi_deduplicate_on_normalised_metadata(session):
     assert c["possibleDuplicateOf"] == [a["id"]]  # ...flagged, never merged
 
 
-def test_same_title_with_a_different_doi_is_flagged_not_merged(session):
+def test_same_title_with_a_different_doi_is_flagged_both_ways_not_merged(session):
     a = di.save_candidate(session, OWNER_ACTOR, cand(doi="10.1/a"))
     b = di.save_candidate(session, OWNER_ACTOR, cand(doi="10.1/b", sources=[source("r2")]))
     assert b["id"] != a["id"] and b["possibleDuplicateOf"] == [a["id"]]
+    first = di.saved_view(session, session.get(di.DiscoverySavedCandidate, a["id"]))
+    assert first["possibleDuplicateOf"] == [b["id"]]  # the earlier candidate learns of the later one too
+    assert "possible-duplicate" in first["review"]["blockingIssues"]
+    with pytest.raises(ValueError, match="possible-duplicate"):
+        di.propose_to_library(session, OWNER_ACTOR, a["id"], [])
+    view = di.propose_to_library(session, OWNER_ACTOR, a["id"], ["possible-duplicate"])
+    row = session.scalar(select(di.DiscoveryLibraryProposal))
+    assert row.proposal["possible_duplicate_of"] == [b["candidateId"]] and view["libraryProposal"]["sent"] is False
+
+
+def test_every_source_keeps_the_metadata_it_arrived_with(session):
+    first = cand(sources=[source("r1")])
+    later = cand(title="ERW in soils (corrected)", sources=[source("o1", "openalex")])
+    di.save_candidate(session, OWNER_ACTOR, first)
+    out = di.save_candidate(session, OWNER_ACTOR, later)
+    rows = {s.provider_record_id: s for s in session.scalars(select(di.DiscoveryCandidateSource))}
+    assert rows["crossref:r1"].candidate_metadata == di.candidate_metadata(first)
+    assert rows["openalex:o1"].candidate_metadata == di.candidate_metadata(later)
+    from app import convergence as cv
+    assert all(cv.canonical_sha256(r.candidate_metadata) == r.metadata_sha256 for r in rows.values())
+    assert out["review"]["conflictingFields"] == ["title"]
+
+
+def test_a_retraction_reported_by_a_later_record_reaches_the_library_reviewer(session):
+    saved = di.save_candidate(session, OWNER_ACTOR, cand(retracted=False))
+    assert saved["review"]["blockingIssues"] == []
+    later = di.save_candidate(session, OWNER_ACTOR, cand(retracted=True, sources=[source("o1", "openalex")]))
+    assert later["id"] == saved["id"] and later["metadata"]["retracted"] is False  # first metadata kept...
+    assert later["review"]["retractionReported"] is True  # ...but the retraction is not hidden
+    assert later["review"]["blockingIssues"] == ["retracted", "metadata-conflict"]
+    with pytest.raises(ValueError, match="retracted"):
+        di.propose_to_library(session, OWNER_ACTOR, saved["id"], ["metadata-conflict"])
+    di.propose_to_library(session, OWNER_ACTOR, saved["id"], ["retracted", "metadata-conflict"])
+    proposal = session.scalar(select(di.DiscoveryLibraryProposal)).proposal
+    assert proposal["retracted"] is True
+    (conflict,) = proposal["conflicts"]
+    assert conflict["field"] == "retracted" and sorted(conflict["values"].values()) == ["false", "true"]
+    assert len(proposal["sources"]) == 2
+
+
+def test_a_concurrent_duplicate_save_is_a_409_not_a_server_error(http, monkeypatch):
+    from sqlalchemy.exc import IntegrityError
+    client, _ = http
+    c = cand()
+    handle = di.HANDLES.put([c])
+
+    def racing(*args, **kwargs):
+        raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+    monkeypatch.setattr(di, "save_candidate", racing)
+    r = client.post(BASE + "/intake/candidates", json={"run_handle": handle, "candidate_id": c.candidate_id},
+                    headers={"Authorization": "Bearer staging-secret", "X-SC-Owner-Scope": OWNER})
+    assert r.status_code == 409
 
 
 def test_long_dois_are_hashed_into_the_identity_key(session):

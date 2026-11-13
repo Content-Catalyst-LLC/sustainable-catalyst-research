@@ -24,7 +24,6 @@ def upgrade():
         sa.Column('title',sa.Text(),nullable=False),
         sa.Column('metadata',sa.JSON(),nullable=False),
         sa.Column('metadata_sha256',sa.String(64),nullable=False),
-        sa.Column('possible_duplicate_of',sa.JSON(),nullable=False),
         sa.Column('status',sa.String(32),nullable=False),
         sa.Column('saved_by',sa.String(160),nullable=False),
         sa.Column('created_at',sa.DateTime(timezone=True),nullable=False,server_default=sa.func.now()),
@@ -42,6 +41,7 @@ def upgrade():
         sa.Column('record_sha256',sa.String(64),nullable=False),
         sa.Column('adapter_version',sa.String(32),nullable=False),
         sa.Column('metadata_sha256',sa.String(64),nullable=False),
+        sa.Column('metadata',sa.JSON(),nullable=False),
         sa.Column('saved_by',sa.String(160),nullable=False),
         sa.Column('created_at',sa.DateTime(timezone=True),nullable=False,server_default=sa.func.now()),
         sa.UniqueConstraint('saved_id','record_sha256',name='uq_research_discovery_source_record'))

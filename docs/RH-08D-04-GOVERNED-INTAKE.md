@@ -37,8 +37,12 @@
    - **Deduplication is per owner:**
      - by DOI, normalised and hashed into the identity key;
      - otherwise by normalised title, year and first-author surname.
-   - **Repeat saves** add only provider records not already held; each record keeps the hash of the metadata it arrived with. The first saved metadata is kept, and a difference is reported as `metadataDiffers`.
-   - **Possible duplicates:** a candidate with the same title and year but a different identity is flagged in `possibleDuplicateOf`, never merged.
+   - **Repeat saves** add only provider records not already held. Each record keeps the metadata it arrived with and that metadata's hash. The first saved metadata stays the candidate's display metadata, and a difference is reported as `metadataDiffers`.
+   - **Reviewer view:** the `review` block, used for every Library proposal, combines all records:
+     - a retraction reported by **any** record counts;
+     - fields that differ between records (`doi`, `title`, `publication_year`, `venue`, `work_type`, `retracted`) become conflicts keyed by record;
+     - so deduplication never hides a retraction or a correction from the Library reviewer.
+   - **Possible duplicates:** the owner's candidates with the same title and year but a different identity are listed in `possibleDuplicateOf` **in both directions**, computed when read. They are never merged, and they make `possible-duplicate` a blocking issue.
 3. **Associate** with `POST …/candidates/{id}/associations/{entry}`, and remove with `…/remove`.
    - This links a saved candidate to one of the owner's Research articles as a `related-candidate`. That is not evidence; evidence still goes through the existing editorial reference rules.
 4. **Propose for Library review** with `POST …/candidates/{id}/library-proposal {acknowledged_blocking_issues}`. Owner only.
@@ -66,8 +70,8 @@
 
 | Table | Contents |
 |---|---|
-| `research_discovery_saved_candidates` | Owner, identity key, title key, candidate metadata (no abstracts), metadata hash, possible duplicates, status. Unique on (owner, identity key). |
-| `research_discovery_candidate_sources` | One row per provider record: provider, record id, retrieval time, query, request, response and record hashes, adapter version, metadata hash, and who saved it. **Append-only.** |
+| `research_discovery_saved_candidates` | Owner, identity key, title key, first saved candidate metadata (no abstracts), metadata hash, status. Unique on (owner, identity key). |
+| `research_discovery_candidate_sources` | One row per provider record: provider, record id, retrieval time, query, request, response and record hashes, adapter version, the metadata it arrived with and its hash, and who saved it. **Append-only.** |
 | `research_discovery_associations` | Saved candidate ↔ Research entry, `related-candidate`, active flag. |
 | `research_discovery_library_proposals` | The proposal, its hash, acknowledged issues, status, `sent`. **Append-only.** |
 | `research_discovery_intake_events` | Hash-chained audit: action, actor, owner, ids, hashes, counts. **Append-only.** No search text, no titles. |
@@ -101,6 +105,34 @@ Saving, associating and proposing never change them.
 - HTTP: authentication, forged metadata ignored, cross-owner 404, editor 403, production refused.
 
 `scripts/accept_postgres.py` adds a PostgreSQL storage acceptance step. It checks that the per-owner identity key is unique and that provenance, proposals and events reject `UPDATE` and `DELETE`, and it can be re-run on the same database. The deduplication and isolation logic is covered by the offline tests.
+
+## Final review (2026-11-13)
+
+**Authorisation:**
+- Every intake route checks the intake gate before identity.
+- Identity is the Research write identity:
+  - the service credential is compared in constant time;
+  - editor attestations are Workspace-signed and checked for owner, grantee, role and expiry.
+- Owner scope is enforced on every lookup, and foreign records answer "not found".
+- Editors associate only within their granted project. Dismissing and proposing are owner-only.
+- Saving takes metadata only from the server's handle, never from the request.
+- Editors can read all of the owner's saved candidates. That is intended: they act for the owner under a signed grant.
+
+**Migration (`0013`):**
+- Models and migration agree (`alembic check`, SQLite and PostgreSQL).
+- Upgrade, downgrade to `0012` (all five tables removed) and re-upgrade are clean.
+- The three append-only triggers are present and enforced.
+- The per-owner identity is unique.
+- New tables fall under the existing `research_reader` default `SELECT` privilege (migration `0003`), the same as every other private table. No public route reads them.
+
+**Provenance integrity**, with these gaps found and fixed in this review:
+1. A later record's disagreeing metadata, including a **retraction**, was kept only as a hash and did not reach the Library proposal. Each record now stores the metadata it arrived with, and proposals use the combined reviewer view.
+2. Possible duplicates were recorded only on the later candidate, at save time, and did not raise a blocking issue. They are now computed in both directions and block until acknowledged.
+3. A concurrent duplicate save surfaced as a 500 error. It is now a 409 (the transaction is rolled back).
+
+**Residual (accepted):**
+- Run handles live in one process's memory. With several API workers a save must reach the worker that ran the search, and otherwise asks the user to search again.
+- Audit sequence numbers are allocated under a row lock in PostgreSQL. A rare conflict is the 409 above.
 
 ## Not authorised by this stage
 
