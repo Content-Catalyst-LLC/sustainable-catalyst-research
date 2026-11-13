@@ -142,7 +142,7 @@ Saving, associating and proposing never change them.
 - **Evidence promotion and publication.**
 - **OpenAlex activation.**
 - **Production deployment.**
-- **Discovery UI:** the existing "Propose for Library review" button stays disabled. A staging UI for saving and proposing comes with the authenticated Workspace shell.
+- **Discovery UI:** RH-08D-05 (`docs/RH-08D-05-DISCOVER-INTAKE-INTERFACE.md`) adds a staging-only interface for saving and proposing. It appears only where intake is enabled.
 
 ## Follow-up requirement from RH-08D-03 staging pilot 01
 

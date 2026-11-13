@@ -1,8 +1,10 @@
-/* RH-08D-02/03 — Discover results: candidate cards, source inspection, provenance, duplicates and the
-   (disabled) Library intake action. Renders a typed sc-research-discovery-search/1.0 response, live
-   (staging) or synthetic, and the status of a refused search.
+/* RH-08D-02/03/05 — Discover results: candidate cards, source inspection, provenance, duplicates and the
+   Library intake action (disabled unless RH-08D-05 governed intake is enabled; see research-discovery-intake.js).
+   Renders a typed sc-research-discovery-search/1.0 response, live (staging) or synthetic, and the status of a
+   refused search.
    Every provider value is untrusted: it enters the DOM through textContent, links are built only for
-   https URLs and validated DOIs, and this file makes no network request of its own.
+   https URLs and validated DOIs, and this file makes no network request of its own
+   (saving goes through research-discovery-intake.js).
 */
 (function (host) {
   "use strict";
@@ -180,13 +182,20 @@
 
   function renderIntake(doc, candidate, context) {
     var box = el(doc, "div", "discovery-intake");
+    // RH-08D-05: where governed intake is enabled and a session credential is set, the candidate can be saved;
+    // the Library proposal is then made from "My saved sources". Elsewhere the button stays disabled.
+    var save = context.saveAction ? context.saveAction(candidate) : null;
+    var issues = (context.issues[candidate.candidate_id] || []).map(function (i) { return ISSUE_TEXT[i] || i; });
+    var reviewer = issues.length ? " A reviewer would first need to resolve: " + issues.join("; ") + "." : "";
+    if (save) {
+      box.append(save, el(doc, "p", "", "Save first, then propose it for Library review from My saved sources." + reviewer));
+      return box;
+    }
     var button = el(doc, "button", "", "Propose for Library review");
     button.type = "button";
     button.disabled = true;
     button.setAttribute("aria-describedby", candidate.candidate_id + "-intake");
-    var issues = (context.issues[candidate.candidate_id] || []).map(function (i) { return ISSUE_TEXT[i] || i; });
-    var note = el(doc, "p", "", "Library intake is not enabled yet." +
-      (issues.length ? " A reviewer would first need to resolve: " + issues.join("; ") + "." : ""));
+    var note = el(doc, "p", "", "Library intake is not enabled yet." + reviewer);
     note.id = candidate.candidate_id + "-intake";
     box.append(button, note);
     return box;
@@ -216,8 +225,9 @@
     return card;
   }
 
-  function renderSearch(target, response, doc) {
+  function renderSearch(target, response, doc, options) {
     doc = doc || target.ownerDocument;
+    var intake = (options && options.intake) || (host && host.SCResearchDiscoveryIntake) || null;
     var run = response && response.run;
     target.replaceChildren();
     if (!run || !Array.isArray(run.candidates) || !Array.isArray(run.outcomes)) {
@@ -225,6 +235,9 @@
       return null;
     }
     var context = {titles: {}, issues: (response.library_intake && response.library_intake.blocking_issues) || {}};
+    if (intake && intake.controller) {
+      context.saveAction = function (c) { return intake.saveAction(doc, response, c, intake.controller); };
+    }
     run.candidates.forEach(function (c) { context.titles[c.candidate_id] = c.title; });
 
     if (run.transport === "fixture") {
