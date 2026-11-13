@@ -78,7 +78,7 @@ Dismissed sources stay listed with their provenance. Saving them again restores 
 - text-only rendering;
 - the saved-status contract with `discovery_intake.SAVED`.
 
-## Local acceptance (2026-11-12)
+## Local acceptance (2026-11-13)
 
 **Setup:** the real Research API and this page on loopback (127.0.0.1), with:
 - SQLite;
