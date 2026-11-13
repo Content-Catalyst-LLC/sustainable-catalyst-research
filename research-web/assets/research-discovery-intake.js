@@ -86,10 +86,11 @@
     var root = base || BASE;
     var workspace = workspaceOrigin(identity);
     var session = null, expires = 0, editor = null;
-    function workspaceCall(method, path) {
+    function workspaceCall(method, path, body) {
       if (!workspace) return Promise.reject(failure(503, "Sustainable Catalyst sign-in is not configured here."));
-      return fetchImpl(workspace + path, {method: method, credentials: "include", cache: "no-store",
-        referrerPolicy: "no-referrer"});
+      var init = {method: method, credentials: "include", cache: "no-store", referrerPolicy: "no-referrer"};
+      if (body !== undefined) { init.headers = {"Content-Type": "application/json"}; init.body = JSON.stringify(body); }
+      return fetchImpl(workspace + path, init);
     }
     function forget() { session = null; expires = 0; editor = null; }
     function refresh() {
@@ -152,6 +153,10 @@
       return encodeURIComponent(slug);
     }
     return {
+      // SC-SCI-02: the Research Console uses the same signed-session client for its own routes.
+      workspace: workspace,
+      workspaceCall: workspaceCall,
+      request: request,
       signIn: function () { return refresh(); },
       signInUrl: function (returnTo) {
         return workspace + "/v1/auth/login?returnTo=" + encodeURIComponent(String(returnTo || "/"));

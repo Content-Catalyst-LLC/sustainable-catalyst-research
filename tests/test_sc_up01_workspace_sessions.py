@@ -93,7 +93,7 @@ def test_sessions_are_off_by_default_and_closed_in_production():
     for url in ("http://workspace.example.org", "https://workspace.example.org/app", "javascript:x", ""):
         assert us.session_state({**key_set, "RESEARCH_WORKSPACE_PUBLIC_URL": url}).reason == "workspace-url-not-configured"
     assert us.workspace_url({"RESEARCH_WORKSPACE_PUBLIC_URL": "http://127.0.0.1:18965"}) == "http://127.0.0.1:18965"
-    assert us.PRODUCTION_USER_SESSIONS_AUTHORIZED is False
+    assert us.session_state({**key_set, "RESEARCH_ENV": "production", us.PRODUCTION_ENV: "authorized"}).enabled
 
 
 # --- HTTP: the saved-sources workflow by signed person -----------------------------------------------------------
@@ -124,7 +124,8 @@ def test_status_tells_the_page_where_to_sign_in_and_that_no_service_credential_i
     client, _ = http
     identity = client.get(BASE + "/discovery/intake/status").json()["identity"]
     assert identity == {"mode": "workspace-session", "reason": "active", "workspaceUrl": "https://workspace.example.org",
-                        "sessionSchema": us.SESSION_SCHEMA, "maxLifetimeSeconds": 300, "serviceCredentialAccepted": False}
+                        "sessionSchema": us.SESSION_SCHEMA, "maxLifetimeSeconds": 300, "serviceCredentialAccepted": False,
+                        "authentication": ["sc-identity-access-token", "sc-identity-oidc-session"]}
     status = client.get(BASE + "/editorial/status").json()
     assert status["privateWritesEnabled"] is True and status["identity"]["mode"] == "workspace-session"
 

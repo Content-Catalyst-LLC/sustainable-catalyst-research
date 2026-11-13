@@ -174,3 +174,8 @@ app.include_router(research_discovery.router)
 from . import public_figures as research_public_figures
 
 app.include_router(research_public_figures.router)
+
+# SC-SCI-02: the signed-in researcher's console. Signed Workspace sessions only; never the service credential.
+from . import research_console
+
+app.include_router(research_console.router)

@@ -12,8 +12,12 @@ The browser holds no Research service credential and chooses no owner. A person 
 The person is the owner of their own records. Acting on another owner's records still needs that owner's Workspace
 editor attestation, whose grantee must be the signed person (``editorial.resolve_actor``).
 
-Off by default (``RESEARCH_USER_IDENTITY``). Staging and development only: production stays closed by constant until
-separately authorised. While it is on, the browser routes refuse the staging service credential.
+Off by default (``RESEARCH_USER_IDENTITY``). Staging and development may turn it on; production additionally needs
+``RESEARCH_USER_SESSIONS_PRODUCTION=authorized`` and an https Workspace origin (SC-SCI-02). While it is on, the browser
+routes refuse the staging service credential.
+
+``RESEARCH_SESSION_METHODS`` may admit further Workspace sign-in methods from ``CONFIGURABLE_METHODS`` only (the
+Workspace account sign-in, which has no MFA); any other value keeps sessions closed rather than widening them.
 """
 from __future__ import annotations
 
@@ -39,7 +43,10 @@ CLOCK_SKEW_SECONDS = 60
 MAX_HEADER_BYTES = 8192
 SC_IDENTITY_METHODS = frozenset({"sc-identity-oidc-session", "sc-identity-access-token"})
 SUBJECT = re.compile(r"^workspace-user:[A-Za-z0-9._:@-]{1,128}$")
-PRODUCTION_USER_SESSIONS_AUTHORIZED = False
+CONFIGURABLE_METHODS = frozenset({"erw-account-session"})
+METHODS_ENV = "RESEARCH_SESSION_METHODS"
+PRODUCTION_ENV = "RESEARCH_USER_SESSIONS_PRODUCTION"
+PRODUCTION_AUTHORIZED = "authorized"
 LOOPBACK = {"127.0.0.1", "localhost", "[::1]"}
 
 
@@ -57,15 +64,30 @@ def session_state(env=None) -> SessionState:
         return SessionState(False, "mode-disabled")
     if mode != MODE:
         return SessionState(False, "unknown-mode")
-    if environment == "production" and not PRODUCTION_USER_SESSIONS_AUTHORIZED:
-        return SessionState(False, "production-not-authorized")
-    if environment not in {"staging", "development"}:
+    if environment == "production":
+        if (env.get(PRODUCTION_ENV) or "").strip().lower() != PRODUCTION_AUTHORIZED:
+            return SessionState(False, "production-not-authorized")
+        if not workspace_url(env).startswith("https://"):
+            return SessionState(False, "production-needs-https-workspace")
+    elif environment not in {"staging", "development"}:
         return SessionState(False, "environment-not-staging")
+    if _configured_methods(env) is None:
+        return SessionState(False, "unknown-session-method")
     if not env.get("RESEARCH_WORKSPACE_PUBLIC_KEY_FILE"):
         return SessionState(False, "workspace-key-not-configured")
     if not workspace_url(env):
         return SessionState(False, "workspace-url-not-configured")
     return SessionState(True, "active")
+
+
+def _configured_methods(env) -> frozenset[str] | None:
+    names = {m.strip() for m in (env.get(METHODS_ENV) or "").split(",") if m.strip()}
+    return frozenset(names) if names <= CONFIGURABLE_METHODS else None
+
+
+def accepted_methods(env=None) -> frozenset[str]:
+    env = os.environ if env is None else env
+    return SC_IDENTITY_METHODS | (_configured_methods(env) or frozenset())
 
 
 def workspace_url(env=None) -> str:
@@ -88,6 +110,7 @@ def public_status(env=None) -> dict:
     return {"mode": MODE if state.enabled else "closed", "reason": state.reason,
             "workspaceUrl": workspace_url(env) if state.enabled else None,
             "sessionSchema": SESSION_SCHEMA, "maxLifetimeSeconds": SESSION_MAX_LIFETIME_SECONDS,
+            "authentication": sorted(accepted_methods(env)) if state.enabled else [],
             "serviceCredentialAccepted": not state.enabled}
 
 
@@ -103,7 +126,7 @@ def _instant(value: Any) -> datetime:
     return when
 
 
-def verify_session(authorization: str | None, key=None, now: datetime | None = None) -> dict:
+def verify_session(authorization: str | None, key=None, now: datetime | None = None, env=None) -> dict:
     """Return the verified session body, or raise PermissionError with a reason safe to show."""
     scheme, _, value = (authorization or "").strip().partition(" ")
     if scheme != SCHEME or not value.strip():
@@ -125,7 +148,7 @@ def verify_session(authorization: str | None, key=None, now: datetime | None = N
         raise PermissionError("The Sustainable Catalyst session could not be verified") from exc
     if not SUBJECT.fullmatch(str(body.get("subject") or "")):
         raise PermissionError("The Sustainable Catalyst session names no Workspace person")
-    if body.get("authentication") not in SC_IDENTITY_METHODS:
+    if body.get("authentication") not in accepted_methods(env):
         raise PermissionError("Research needs a Sustainable Catalyst sign-in, not a service credential")
     now = now or datetime.now(timezone.utc)
     try:
@@ -140,6 +163,18 @@ def verify_session(authorization: str | None, key=None, now: datetime | None = N
     return body
 
 
+def signed_person(authorization: str | None) -> str:
+    """The signed person for a route that serves only signed-in people (no service-credential fallback)."""
+    if not session_state().enabled:
+        raise HTTPException(status_code=503, detail="Sustainable Catalyst sign-in is not enabled for Research")
+    try:
+        return verify_session(authorization)["subject"]
+    except PermissionError as exc:
+        raise _refuse(str(exc)) from exc
+    except (RuntimeError, OSError) as exc:  # the Workspace key is missing or unreadable: fail closed
+        raise HTTPException(status_code=503, detail="Research cannot verify Sustainable Catalyst sessions") from exc
+
+
 def principal(authorization: str | None, owner_scope: str | None, actor_scope: str | None) -> tuple[str, str]:
     """(owner, acting person) for a browser route.
 
@@ -148,12 +183,7 @@ def principal(authorization: str | None, owner_scope: str | None, actor_scope: s
     owner's attestation for the signed person). Otherwise the staging service credential applies as before.
     """
     if session_state().enabled:
-        try:
-            person = verify_session(authorization)["subject"]
-        except PermissionError as exc:
-            raise _refuse(str(exc)) from exc
-        except (RuntimeError, OSError) as exc:  # the Workspace key is missing or unreadable: fail closed
-            raise HTTPException(status_code=503, detail="Research cannot verify Sustainable Catalyst sessions") from exc
+        person = signed_person(authorization)
         owner = (owner_scope or "").strip() or person
         if len(owner) > 160:
             raise HTTPException(status_code=400, detail="X-SC-Owner-Scope is too long")
