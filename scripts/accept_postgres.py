@@ -158,36 +158,44 @@ for sql in ["UPDATE research_editorial_events SET action='tamper' WHERE seq=(SEL
     except DBAPIError:
         pass
 print('PASS SC-ED-01 editorial revisions, stewardship and audit chain are append-only')
-from app import discovery_intake as intake
-from app.discovery_adapters.models import Candidate, CandidateSource
+from app import discovery_intake_store as intake
 import hashlib
 hx=lambda t: hashlib.sha256(t.encode()).hexdigest()
-src=CandidateSource(provider='crossref',provider_record_id='crossref:syn-'+suffix,retrieved_at='2026-11-13T00:00:00+00:00',
-    query_sha256=hx('q'),request_sha256=hx('req'),response_sha256=hx('resp'),record_sha256=hx('rec-'+suffix))
-cand=Candidate(candidate_id='cand-'+hx('c'+suffix)[:24],doi='10.0000/syn-'+suffix,title='Synthetic intake candidate',
-    publication_year=2026,retracted=False,sources=(src,))
-other_actor=editorial.Actor('synthetic-b','owner','synthetic-b','*')
 with Session(engine) as s:
-    saved=intake.save_candidate(s,actor,cand)
-    assert intake.save_candidate(s,actor,cand)['id']==saved['id']
-    intake.associate(s,actor,saved['id'],'ed-'+suffix)
-    intake.propose_to_library(s,actor,saved['id'],[])
-    s.commit()
-    try:
-        intake.dismiss(s,other_actor,saved['id'])
-        raise AssertionError('cross-owner intake bypass')
-    except LookupError:
-        s.rollback()
-    assert intake.verify_chain(s)['valid']
-    assert intake.saved_view(s,s.get(intake.DiscoverySavedCandidate,saved['id']))['libraryProposal']['sent'] is False
+    saved=intake.DiscoverySavedCandidate(owner_scope='synthetic-a',dedup_key='doi:'+hx('10.0000/syn-'+suffix),
+        title_key=hx('t'+suffix),candidate_id='cand-'+hx('c'+suffix)[:24],doi='10.0000/syn-'+suffix,
+        title='Synthetic intake candidate',candidate_metadata={'title':'Synthetic intake candidate'},
+        metadata_sha256=hx('m'),possible_duplicate_of=[],status='saved-unreviewed',saved_by='synthetic-a')
+    s.add(saved); s.flush()
+    s.add(intake.DiscoveryCandidateSource(saved_id=saved.id,provider='crossref',provider_record_id='crossref:syn',
+        retrieved_at='2026-11-13T00:00:00+00:00',query_sha256=hx('q'),request_sha256=hx('req'),
+        response_sha256=hx('resp'),record_sha256=hx('rec'),adapter_version='synthetic',metadata_sha256=hx('m'),
+        saved_by='synthetic-a'))
+    s.add(intake.DiscoveryLibraryProposal(saved_id=saved.id,owner_scope='synthetic-a',proposal={'status':'draft-not-submitted'},
+        proposal_sha256=hx('p'),acknowledged_issues=[],status='awaiting-library-endpoint',sent=False,
+        proposed_by='synthetic-a'))
+    seq=(s.scalar(text('SELECT max(seq) FROM research_discovery_intake_events')) or 0)+1
+    s.add(intake.DiscoveryIntakeEvent(seq=seq,action='candidate-saved',owner_scope='synthetic-a',saved_id=saved.id,
+        body={'synthetic':True},prev_sha256='0'*64,event_sha256=hx('e'+suffix)))
+    s.commit(); saved_id=saved.id
+try:
+    with Session(engine) as s:
+        s.add(intake.DiscoverySavedCandidate(owner_scope='synthetic-a',dedup_key='doi:'+hx('10.0000/syn-'+suffix),
+            title_key='x',candidate_id='cand-'+'0'*24,title='Duplicate',candidate_metadata={},metadata_sha256='0'*64,
+            possible_duplicate_of=[],status='saved-unreviewed',saved_by='synthetic-a'))
+        s.commit()
+    raise AssertionError('per-owner identity duplicate accepted')
+except DBAPIError:
+    pass
 for sql in ["UPDATE research_discovery_candidate_sources SET record_sha256=:z WHERE saved_id=:id",
             'DELETE FROM research_discovery_candidate_sources WHERE saved_id=:id',
             "UPDATE research_discovery_library_proposals SET sent=true WHERE saved_id=:id",
-            "UPDATE research_discovery_intake_events SET action='tamper' WHERE saved_id=:id"]:
+            "UPDATE research_discovery_intake_events SET action='tamper' WHERE saved_id=:id",
+            'DELETE FROM research_discovery_intake_events WHERE saved_id=:id']:
     try:
         with engine.begin() as c:
-            c.execute(text(sql),{'id':saved['id'],'z':h('0')})
+            c.execute(text(sql),{'id':saved_id,'z':hx('0')})
         raise AssertionError('intake record mutation accepted: '+sql[:40])
     except DBAPIError:
         pass
-print('PASS RH-08D-04 intake: per-owner dedup, owner isolation; provenance, proposals and audit are append-only')
+print('PASS RH-08D-04 intake storage: per-owner identity is unique; provenance, proposals and audit are append-only')

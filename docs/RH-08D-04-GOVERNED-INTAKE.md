@@ -62,7 +62,7 @@
 
 **Isolation between owners:** owners never see each other's candidates. Another owner's candidate or article answers "not found", the same as an absent one.
 
-## Storage (migration `0013_discovery_intake`)
+## Storage (`discovery_intake_store.py`, migration `0013_discovery_intake`)
 
 | Table | Contents |
 |---|---|
@@ -72,7 +72,9 @@
 | `research_discovery_library_proposals` | The proposal, its hash, acknowledged issues, status, `sent`. **Append-only.** |
 | `research_discovery_intake_events` | Hash-chained audit: action, actor, owner, ids, hashes, counts. **Append-only.** No search text, no titles. |
 
-**Append-only enforcement:** in PostgreSQL the append-only tables reject `UPDATE` and `DELETE` with the existing `research_deny_record_change()` trigger, checked by `scripts/accept_postgres.py`. The search text itself is never stored; only its hash, inside provenance.
+**Append-only enforcement:** in PostgreSQL the append-only tables reject `UPDATE` and `DELETE` with the existing `research_deny_record_change()` trigger, checked by `scripts/accept_postgres.py`.
+
+**Module split:** the tables live in `discovery_intake_store.py`, which has no discovery adapter imports. The migration, `alembic/env.py` and the PostgreSQL acceptance depend only on that module. The gated logic and routes are in `discovery_intake.py`. The search text itself is never stored; only its hash, inside provenance.
 
 ## Separation
 
@@ -98,7 +100,7 @@ Saving, associating and proposing never change them.
 - the audit chain, including tamper detection and no search text;
 - HTTP: authentication, forged metadata ignored, cross-owner 404, editor 403, production refused.
 
-`scripts/accept_postgres.py` adds a PostgreSQL acceptance step: per-owner deduplication, owner isolation, and append-only provenance, proposals and events.
+`scripts/accept_postgres.py` adds a PostgreSQL storage acceptance step. It checks that the per-owner identity key is unique and that provenance, proposals and events reject `UPDATE` and `DELETE`, and it can be re-run on the same database. The deduplication and isolation logic is covered by the offline tests.
 
 ## Not authorised by this stage
 

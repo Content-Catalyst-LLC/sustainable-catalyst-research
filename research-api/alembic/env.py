@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 from app.workspaces import Base
 # Every module that declares tables on Base must be imported, or autogenerate proposes dropping them.
-from app import convergence, discovery_intake, editorial, figure_releases, object_registry, workspace_ingest  # noqa: F401
+from app import convergence, discovery_intake_store, editorial, figure_releases, object_registry, workspace_ingest  # noqa: F401
 config = context.config
 target_metadata = Base.metadata
 # Maintained by the 0005 triggers, not by a model.
