@@ -66,3 +66,16 @@ test("the console page and server policy keep it same-origin plus the configured
   const docker = fs.readFileSync(path.join(root, "Dockerfile"), "utf8");
   assert.match(docker, /grep -Eqx '\(https:\/\/\[A-Za-z0-9\.-\]\+\(:\[0-9\]\{1,5\}\)\?\)\?'/);
 });
+
+test("SC-CITE-01: Console citations are Workspace markers and Workspace snapshots, never formatted here", () => {
+  assert.equal(consoleApi.insertMarker("Potential is large.", 18, 18, "beerling2020potential"), "Potential is large[@beerling2020potential].");
+  assert.equal(consoleApi.insertMarker("ab", 0, 2, "k"), "[@k]");
+  assert.equal(consoleApi.hasMarkers("x [@k, p. 2] y"), true);
+  assert.equal(consoleApi.hasMarkers("x [k] y"), false);
+  assert.equal(consoleApi.publicationFor("", {items: []}), null);
+  const snap = {schema: "sc-publication-bibliography/1.0", style: "harvard", items: [], markers: {}};
+  assert.deepEqual(consoleApi.publicationFor("report", snap), {type: "report", bibliography: snap});
+  assert.throws(() => consoleApi.publicationFor("original-submission", null), /Unknown publication type/);
+  assert.throws(() => consoleApi.publicationFor("research-paper", null), /Unknown publication type/);
+  assert.equal(consoleApi.STUDIO, "/v1/private-research/reporting-studio/publication");
+});

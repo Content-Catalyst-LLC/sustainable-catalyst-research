@@ -16,6 +16,9 @@
   var ROLE_BY_KIND = {figure: "figure", result: "result", "statistical-result": "result", computation: "result",
     simulation: "result", table: "result", notebook: "notebook", dataset: "dataset", model: "model",
     source: "citation", publication: "citation"}; // editorial.REFERENCE_ROLES
+  // SC-CITE-01: Workspace is the only citation store and formatter; the Console stores Workspace's snapshot.
+  var STUDIO = "/v1/private-research/reporting-studio/publication";
+  var PUBLICATION_TYPES = ["report", "working-paper", "policy-brief", "interactive-analysis"]; // editorial.PUBLICATION_TYPES
   var KIND_ORDER = ["source", "publication", "dataset", "model", "notebook", "computation", "simulation", "result",
     "statistical-result", "table", "figure", "research-article"];
 
@@ -49,10 +52,24 @@
     }).map(function (n) { return {objectId: n.id, role: ROLE_BY_KIND[n.kind], pin: n.provenanceSha256, caption: n.title}; });
   }
 
+  function insertMarker(text, start, end, key) {
+    var at = typeof start === "number" ? start : text.length, to = typeof end === "number" ? end : at;
+    return text.slice(0, at) + "[@" + key + "]" + text.slice(to);
+  }
+  function hasMarkers(text) { return /\[@[^\]\n]+\]/.test(text || ""); }
+  // The publication block of a Console revision: a type, and the bibliography snapshot Workspace returned (if any).
+  function publicationFor(type, bibliography) {
+    if (!type) return null;
+    if (PUBLICATION_TYPES.indexOf(type) < 0) throw new Error("Unknown publication type " + type);
+    var pub = {type: type};
+    if (bibliography) pub.bibliography = bibliography;
+    return pub;
+  }
+
   function mount(doc, fetchImpl) {
     var Intake = host.SCResearchDiscoveryIntake, Figures = host.SCResearchFigures;
     var $ = function (id) { return doc.getElementById(id); };
-    var state = {client: null, notebooks: [], graph: {nodes: [], edges: []}, projects: [], article: null};
+    var state = {client: null, notebooks: [], graph: {nodes: [], edges: []}, projects: [], article: null, studio: null};
 
     function h(tag, attrs) {
       var node = doc.createElement(tag);
@@ -373,20 +390,88 @@
       var art = x.entry.article;
       $("pub-submit").disabled = !(art && art.headRevision > 0 && art.reviewStatus === "draft");
     }
+    // ---- Citation Studio and Reporting Studio (Workspace, with the owner's session) ---------------------------------
+    function workspaceProject() {
+      var x = chosen();
+      if (!x || !x.project.workspaceProjectId) throw new Error("Choose an entry bound to a Workspace project.");
+      return encodeURIComponent(x.project.workspaceProjectId);
+    }
+    function citeLoad(button) {
+      return run(button, function () {
+        return ws("GET", STUDIO + "/citations/projects/" + workspaceProject()).then(function (view) {
+          var style = $("pub-cite-style").value, body = $("pub-body");
+          $("pub-cite-list").replaceChildren.apply($("pub-cite-list"), (view.items || []).map(function (it) {
+            var f = (it.formatted || {})[style] || {};
+            return h("li", {}, h("button", {type: "button", "class": "console-small", text: "Insert", onclick: function () {
+              body.value = insertMarker(body.value, body.selectionStart, body.selectionEnd, it.key);
+            }}), " " + (f.reference || it.title) + (it.provenance && it.provenance.libraryRecordId ? " · Library " + it.provenance.libraryRecordId : ""));
+          }));
+          if (!(view.items || []).length) $("pub-cite-list").replaceChildren(h("li", {text: "This project has no references yet. Import them in the Reporting Studio's Citation Studio."}));
+        });
+      });
+    }
+    function studioLoad(button) {
+      return run(button, function () {
+        return ws("GET", STUDIO + "/projects/" + workspaceProject() + "/documents").then(function (out) {
+          var sel = $("pub-studio-doc");
+          sel.replaceChildren.apply(sel, (out.documents || []).map(function (d) {
+            return h("option", {value: d.documentId + "@" + d.revision, text: d.title + " · revision " + d.revision});
+          }));
+          $("pub-studio-use").disabled = !(out.documents || []).length;
+        });
+      });
+    }
+    function studioUse(button) {
+      return run(button, function () {
+        var x = chosen(), type = $("pub-type").value, pick = $("pub-studio-doc").value.split("@");
+        if (!type) throw new Error("Choose the publication type first.");
+        var path = STUDIO + "/projects/" + workspaceProject() + "/documents/" + encodeURIComponent(pick[0]) +
+          "/research-revision?revision=" + encodeURIComponent(pick[1]) + "&publicationType=" + encodeURIComponent(type);
+        return ws("GET", path).then(function (payload) {
+          state.studio = {entry: x.entry.slug, payload: payload};
+          $("pub-title").value = payload.title;
+          $("pub-body").value = payload.sections.map(function (s) { return "## " + s.heading + "\n\n" + s.body; }).join("\n\n");
+          $("pub-body").readOnly = true;
+          var nc = payload.notCarried || {};
+          $("pub-studio-note").textContent = "Studio revision " + pick[1] + " (" + payload.publication.derivedFrom[0].documentSha256.slice(0, 12) +
+            "…): " + payload.sections.length + " sections, " + ((payload.publication.bibliography || {}).items || []).length +
+            " cited works. Not carried: " + (nc.figures || 0) + " figures" + ((nc.unresolvedCitations || []).length ? ", unresolved " + nc.unresolvedCitations.join(", ") : "") + ".";
+        });
+      });
+    }
+    function draftPublication(x, sections) {
+      var type = $("pub-type").value;
+      if (!type) {
+        if (sections.some(function (s) { return hasMarkers(s.body); })) throw new Error("Choose a publication type so the citations can be stored with the revision.");
+        return Promise.resolve(null);
+      }
+      if (!sections.some(function (s) { return hasMarkers(s.body); })) return Promise.resolve(publicationFor(type, null));
+      return ws("POST", STUDIO + "/citations/projects/" + workspaceProject() + "/snapshot",
+        {sections: sections, style: $("pub-cite-style").value}).then(function (snap) { return publicationFor(type, snap.bibliography); });
+    }
+
     function revise(button) {
       return run(button, function () {
         var x = chosen();
         if (!x) throw new Error("Choose a Research entry.");
+        var studio = state.studio && state.studio.entry === x.entry.slug ? state.studio.payload : null;
+        var sections = studio ? studio.sections : [{heading: "Findings", body: $("pub-body").value}];
+        var pending = studio ? Promise.resolve(studio.publication) : draftPublication(x, sections);
         var picks = Array.prototype.map.call($("pub-refs").querySelectorAll("input:checked"), function (i) { return i.value; });
         var start = x.entry.article ? Promise.resolve() : rs("POST", "/editorial/articles", {areaSlug: x.project.area,
           projectKey: x.project.projectKey, workspaceProjectId: x.project.workspaceProjectId || "", slug: x.entry.slug,
           title: $("pub-title").value.trim() || x.entry.title});
-        return start.then(function () { return rs("GET", "/editorial/articles/" + x.entry.slug); }).then(function (art) {
-          return rs("POST", "/editorial/articles/" + x.entry.slug + "/revisions", {baseRevision: art.headRevision || 0,
-            title: $("pub-title").value.trim() || x.entry.title, summary: $("pub-summary").value,
-            sections: [{heading: "Findings", body: $("pub-body").value}],
-            references: referencesFor(state.graph.nodes, x.entry.slug, picks), changeSummary: "Prepared in the Research Console"});
-        }).then(function (rev) { return readiness(x.entry.slug, rev.revision); }).then(refresh);
+        var publication;
+        return pending.then(function (pub) { publication = pub; return start; }).then(function () {
+          return rs("GET", "/editorial/articles/" + x.entry.slug);
+        }).then(function (art) {
+          var body = {baseRevision: art.headRevision || 0, title: $("pub-title").value.trim() || x.entry.title,
+            summary: $("pub-summary").value, sections: sections,
+            references: referencesFor(state.graph.nodes, x.entry.slug, picks),
+            changeSummary: studio ? studio.changeSummary : "Prepared in the Research Console"};
+          if (publication) body.publication = publication;
+          return rs("POST", "/editorial/articles/" + x.entry.slug + "/revisions", body);
+        }).then(function (rev) { state.studio = null; $("pub-body").readOnly = false; return readiness(x.entry.slug, rev.revision); }).then(refresh);
       });
     }
     function readiness(slug, revision) {
@@ -429,13 +514,17 @@
         $("console-signin").hidden = true; $("console-app").hidden = false;
         $("pub-revise").onclick = function (ev) { revise(ev.target); };
         $("pub-submit").onclick = function (ev) { submit(ev.target); };
+        $("pub-cite-load").onclick = function (ev) { citeLoad(ev.target); };
+        $("pub-studio-load").onclick = function (ev) { studioLoad(ev.target); };
+        $("pub-studio-use").onclick = function (ev) { studioUse(ev.target); };
         notice(status.importsEnabled ? "" : "Imports from Workspace are not configured on this deployment; existing records are read-only here.");
         return Promise.all([refresh(), loadWorkspace()]).catch(function (err) { notice(err.message, true); });
       });
     });
   }
 
-  var api = {mount: mount, slugify: slugify, figureRequest: figureRequest, referencesFor: referencesFor, ROLE_BY_KIND: ROLE_BY_KIND};
+  var api = {mount: mount, slugify: slugify, figureRequest: figureRequest, referencesFor: referencesFor, ROLE_BY_KIND: ROLE_BY_KIND,
+    insertMarker: insertMarker, publicationFor: publicationFor, hasMarkers: hasMarkers, PUBLICATION_TYPES: PUBLICATION_TYPES, STUDIO: STUDIO};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (host && host.document) {
     host.SCResearchConsole = api;
