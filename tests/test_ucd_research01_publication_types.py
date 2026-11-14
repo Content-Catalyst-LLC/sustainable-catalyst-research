@@ -85,6 +85,12 @@ def test_an_unverified_submission_need_not_name_a_file(session, world):
     assert seed["status"] == "unverified" and "sha256" not in seed
 
 
+def test_a_typed_publication_needs_pinned_evidence_before_review(session, world):
+    revise(session, world, derived(), roles=())
+    with pytest.raises(PermissionError, match="Pin at least one"):
+        ed.submit_revision(session, OWNER_ACTOR, slug=SLUG, revision=1)
+
+
 def test_an_unverified_original_submission_is_never_released(session, world):
     with pytest.raises(PermissionError, match="verified against its receipt"):
         _publish(session, world, {"type": "original-submission", "submission": SUBMISSION})

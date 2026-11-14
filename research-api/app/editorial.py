@@ -633,6 +633,10 @@ def submit_revision(session: Session, actor: Actor, *, slug: str, revision: int)
     if revision != art.head_revision or revision == 0:
         raise Conflict("Only the current head revision can be submitted for review")
     rev = _revision(session, entry, revision)
+    pub = rev.document.get("publication") or {}
+    if pub and pub["type"] != "original-submission" and not rev.document["references"]:
+        raise PermissionError("Pin at least one verified run, figure or source before submitting this publication "
+                              "for review (UCD-RESEARCH-01 reproducibility rule)")
     checks = [verify_reference(session, actor.owner, r, require_reproduction=True) for r in rev.document["references"]]
     _require_verified(checks, "submitted for review")
     art.submitted_revision, art.review_status, art.updated_at = revision, "in-review", _now()
