@@ -22,6 +22,10 @@ that cite notebook-derived outputs, figures, model results, study packages and c
   against it (``editorial_integrity``) so direct SQL changes are detectable.
 * The public Research Hub sees only released revisions of published articles in published areas;
   private drafts, owner scopes, pins and approval records never reach the public projection.
+* UCD-RESEARCH-01: a revision may carry a ``publication`` block: its publication type, what it was derived from
+  (Workspace sources, an exact Reporting Studio revision, an earlier article, an academic submission) and the
+  bibliography the Studio froze for that revision. An ``original-submission`` is released only once its submission
+  is verified against a receipt; unverified submission details never reach the public projection.
 * SC-PUB-M1 release lifecycle: a published article can be *unlisted* (still served by link, never
   discoverable in the catalog or object listings) and relisted, or *withdrawn* (final: content is no
   longer served; the public URL answers 410 with a tombstone notice). Every release-changing action
@@ -72,6 +76,12 @@ REFERENCE_ROLES = {
 }
 CITATION_KINDS = REFERENCE_ROLES["citation"]
 MAX_SECTIONS, MAX_REFERENCES, MAX_BODY = 40, 200, 200_000
+PUBLICATION_TYPES = ("report", "working-paper", "policy-brief", "interactive-analysis", "original-submission")
+RELATIONS = ("derived-from", "revises", "companion-to")
+ORIGIN_KINDS = ("workspace-source", "workspace-studio-revision", "research-article", "academic-submission")
+SUBMISSION_STATUSES = ("unverified", "verified")
+BIBLIOGRAPHY_SCHEMA = "sc-publication-bibliography/1.0"
+MAX_ORIGINS = 40
 SHA = re.compile(r"^[0-9a-f]{64}$")
 GENESIS = "0" * 64
 
@@ -423,6 +433,118 @@ def normalize_references(refs: Any) -> list[dict]:
     return out
 
 
+def _sha(value: Any, name: str) -> str:
+    if not SHA.fullmatch(str(value or "")):
+        raise ValueError(f"{name} must be a SHA-256 hex digest")
+    return value
+
+
+def _submission(value: Any, name: str) -> dict:
+    """An academic submission record. It is never inferred: ``verified`` needs the receipt it was checked against."""
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must describe the submission")
+    status = value.get("status", "unverified")
+    if status not in SUBMISSION_STATUSES:
+        raise ValueError(f"{name}.status must be one of {list(SUBMISSION_STATUSES)}")
+    out = {"status": status, "sha256": _sha(value.get("sha256"), f"{name}.sha256")}
+    for k, limit in (("institution", 200), ("course", 200), ("assignment", 200), ("submittedOn", 40),
+                     ("receiptRef", 300)):
+        out[k] = _text(value.get(k, ""), f"{name}.{k}", limit, False)
+    if status == "verified" and not out["receiptRef"].strip():
+        raise ValueError(f"{name}: a verified submission must name the receipt it was verified against")
+    return out
+
+
+def _bibliography(value: Any) -> dict:
+    """The bibliography the Reporting Studio froze for the exact revision (sc-publication-bibliography/1.0)."""
+    if not isinstance(value, dict) or value.get("schema") != BIBLIOGRAPHY_SCHEMA:
+        raise ValueError(f"publication.bibliography must be a {BIBLIOGRAPHY_SCHEMA} record")
+    items = value.get("items")
+    if not isinstance(items, list) or len(items) > MAX_REFERENCES:
+        raise ValueError(f"publication.bibliography.items must list at most {MAX_REFERENCES} works")
+    out, seen = [], set()
+    for i, it in enumerate(items):
+        key = _text(it.get("key") if isinstance(it, dict) else None, f"bibliography.items[{i}].key", 120)
+        if key in seen:
+            raise ValueError(f"bibliography.items[{i}] repeats key {key!r}")
+        seen.add(key)
+        out.append({"key": key, "reference": _text(it.get("reference"), f"bibliography.items[{i}].reference", 4000),
+                    "inText": _text(it.get("inText", ""), f"bibliography.items[{i}].inText", 400, False),
+                    "doi": _text(it.get("doi") or "", f"bibliography.items[{i}].doi", 300, False)})
+    return {"schema": BIBLIOGRAPHY_SCHEMA, "style": _text(value.get("style"), "bibliography.style", 40),
+            "items": out, "unresolved": [_text(k, "bibliography.unresolved", 120) for k in value.get("unresolved") or []]}
+
+
+def normalize_publication(value: Any, workspace_project_ref: str | None) -> dict | None:
+    """Publication type, origins and frozen bibliography of one revision (UCD-RESEARCH-01). Absent stays absent, so
+    revisions written before this block keep their document hash."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or value.get("type") not in PUBLICATION_TYPES:
+        raise ValueError(f"publication.type must be one of {list(PUBLICATION_TYPES)}")
+    out: dict = {"type": value["type"]}
+    origins = value.get("derivedFrom") or []
+    if not isinstance(origins, list) or len(origins) > MAX_ORIGINS:
+        raise ValueError(f"publication.derivedFrom must list at most {MAX_ORIGINS} origins")
+    if value["type"] == "original-submission":
+        if origins:
+            raise ValueError("An original submission is itself the origin; it cannot be derived from anything")
+        out["submission"] = _submission(value.get("submission"), "publication.submission")
+    elif "submission" in value:
+        raise ValueError("Only an original-submission carries a submission record; cite it in derivedFrom instead")
+    norm = []
+    for i, o in enumerate(origins):
+        name = f"publication.derivedFrom[{i}]"
+        if not isinstance(o, dict) or o.get("relation") not in RELATIONS or o.get("kind") not in ORIGIN_KINDS:
+            raise ValueError(f"{name} needs a relation in {list(RELATIONS)} and a kind in {list(ORIGIN_KINDS)}")
+        item = {"relation": o["relation"], "kind": o["kind"], "label": _text(o.get("label", ""), f"{name}.label", 300, False)}
+        if o["kind"] == "workspace-studio-revision":
+            project = _text(o.get("workspaceProjectId"), f"{name}.workspaceProjectId", 160)
+            if workspace_ref(project) != workspace_project_ref:
+                raise ValueError(f"{name}: the Studio revision belongs to a different Workspace project")
+            revision = o.get("revision")
+            if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+                raise ValueError(f"{name}.revision must be a Studio revision number")
+            item.update(workspaceProjectId=project, documentId=_text(o.get("documentId"), f"{name}.documentId", 160),
+                        revision=revision, documentSha256=_sha(o.get("documentSha256"), f"{name}.documentSha256"))
+        elif o["kind"] == "academic-submission":
+            item["submission"] = _submission(o.get("submission"), f"{name}.submission")
+        else:
+            item["ref"] = _text(o.get("ref"), f"{name}.ref", 300)
+            if o.get("sha256") is not None:
+                item["sha256"] = _sha(o.get("sha256"), f"{name}.sha256")
+        norm.append(item)
+    if norm:
+        out["derivedFrom"] = norm
+    if value.get("bibliography") is not None:
+        out["bibliography"] = _bibliography(value["bibliography"])
+    return out
+
+
+def public_publication(document: dict) -> dict | None:
+    """What the public sees of the publication block: types and relations, never unverified submission details,
+    Workspace ids or hashes of private sources."""
+    pub = document.get("publication")
+    if not pub:
+        return None
+    origins = []
+    for o in pub.get("derivedFrom", []):
+        entry = {"relation": o["relation"], "kind": o["kind"], "label": o["label"]}
+        if o["kind"] == "academic-submission":
+            sub = o["submission"]
+            entry["submissionStatus"] = sub["status"]
+            if sub["status"] == "verified":
+                entry.update({k: sub[k] for k in ("institution", "course", "assignment", "submittedOn")})
+        origins.append(entry)
+    out = {"type": pub["type"], "derivedFrom": origins}
+    if pub["type"] == "original-submission":
+        sub = pub["submission"]
+        out["submission"] = {k: sub[k] for k in ("status", "institution", "course", "assignment", "submittedOn")}
+    if pub.get("bibliography"):
+        out["bibliography"] = [{k: it[k] for k in ("key", "reference", "doi")} for it in pub["bibliography"]["items"]]
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Article operations
 
@@ -461,19 +583,22 @@ def create_article(session: Session, actor: Actor, *, area_slug: str, project_ke
 
 
 def add_revision(session: Session, actor: Actor, *, slug: str, base_revision: int, title: str, summary: str,
-                 sections: Any, references: Any, change_summary: str = "") -> dict:
+                 sections: Any, references: Any, change_summary: str = "", publication: Any = None) -> dict:
     entry, project, area, workspace, art = _entry(session, actor.owner, slug)
     _require_project(actor, project)
     if base_revision != art.head_revision:
         raise Conflict(f"Article head is revision {art.head_revision}, not {base_revision}; reload before revising")
     title, summary = _text(title, "title", 350), _text(summary, "summary", 10000, False)
     sections, refs = normalize_sections(sections), normalize_references(references)
+    publication = normalize_publication(publication, project.external_workspace_ref)
     checks = [verify_reference(session, actor.owner, r) for r in refs]
     _require_verified(checks, "used in a revision")
     number = art.head_revision + 1
     document = {"schema": REVISION_SCHEMA, "entry": entry.slug, "revision": number,
                 "parent": art.head_revision or None, "title": title, "summary": summary,
                 "sections": sections, "references": refs}
+    if publication is not None:
+        document["publication"] = publication
     digest = cv.canonical_sha256(document)
     obj = md.register_metadata_object(
         session, workspace=workspace, owner_scope=actor.owner, authority="research",
@@ -494,6 +619,7 @@ def add_revision(session: Session, actor: Actor, *, slug: str, base_revision: in
     session.flush()
     _event(session, actor, "revision-created", entry=entry,
            detail={"revision": number, "documentSha256": digest, "references": len(refs),
+                   **({"publicationType": publication["type"]} if publication else {}),
                    **({"withdrewSubmission": withdrawn} if withdrawn else {})})
     return {"revision": number, "documentSha256": digest, "objectId": obj.id,
             "subjectRef": cv.subject_ref(obj, cv._provenance(session, obj)), "references": checks}
@@ -551,6 +677,9 @@ def _publication_checks(session: Session, owner: str, area: ws.ResearchArea, rev
     missing = [d for d, ok in state.items() if not ok]
     if missing:
         raise PermissionError("Missing signed Workspace approvals for this revision: " + ", ".join(missing))
+    pub = rev.document.get("publication") or {}
+    if pub.get("type") == "original-submission" and pub["submission"]["status"] != "verified":
+        raise PermissionError("An original submission is released only after it is verified against its receipt")
     home = session.scalar(select(ws.EntryWorkspace.id).where(ws.EntryWorkspace.entry_id == rev.entry_id))
     checks = [verify_reference(session, owner, r, require_reproduction=True, require_public=True, home_workspace=home)
               for r in rev.document["references"]]
@@ -877,6 +1006,7 @@ def public_article(session: Session, slug: str) -> dict | None:
             "listed": art.publication_status == "published",
             "summary": rev.document["summary"], "area": area, "revision": released.revision_number,
             "releasedAt": released.released_at.isoformat(), "sections": rev.document["sections"], "references": refs,
+            "publication": public_publication(rev.document),
             "classificationNotice": (
                 "Cites " + ", ".join(sorted(notices)) + " outputs. These are not measurements." if notices else None)}
 
@@ -984,7 +1114,8 @@ def revise_route(slug: str, body: dict = Body(...), actor: Actor = Depends(edito
                  session: Session = Depends(ws.get_session)):
     return _do(session, add_revision, actor, slug=slug, base_revision=int(body.get("baseRevision", -1)),
                title=body.get("title"), summary=body.get("summary", ""), sections=body.get("sections"),
-               references=body.get("references", []), change_summary=body.get("changeSummary", ""))
+               references=body.get("references", []), change_summary=body.get("changeSummary", ""),
+               publication=body.get("publication"))
 
 
 @router.post("/editorial/articles/{slug}/revisions/{revision}/submit")
