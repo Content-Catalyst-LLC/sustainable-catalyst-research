@@ -82,6 +82,8 @@ ORIGIN_KINDS = ("workspace-source", "workspace-studio-revision", "research-artic
 SUBMISSION_STATUSES = ("unverified", "verified")
 BIBLIOGRAPHY_SCHEMA = "sc-publication-bibliography/1.0"
 MAX_ORIGINS = 40
+MAX_MARKERS = 400
+CITATION_MARKER = re.compile(r"\[@[^\]\n]{1,600}\]")
 SHA = re.compile(r"^[0-9a-f]{64}$")
 GENESIS = "0" * 64
 
@@ -470,11 +472,35 @@ def _bibliography(value: Any) -> dict:
         if key in seen:
             raise ValueError(f"bibliography.items[{i}] repeats key {key!r}")
         seen.add(key)
-        out.append({"key": key, "reference": _text(it.get("reference"), f"bibliography.items[{i}].reference", 4000),
-                    "inText": _text(it.get("inText", ""), f"bibliography.items[{i}].inText", 400, False),
-                    "doi": _text(it.get("doi") or "", f"bibliography.items[{i}].doi", 300, False)})
+        item = {"key": key, "reference": _text(it.get("reference"), f"bibliography.items[{i}].reference", 4000),
+                "inText": _text(it.get("inText", ""), f"bibliography.items[{i}].inText", 400, False),
+                "doi": _text(it.get("doi") or "", f"bibliography.items[{i}].doi", 300, False)}
+        lib = it.get("library")
+        if lib is not None:  # Knowledge Library provenance of the cited record, as Workspace recorded it at import
+            if not isinstance(lib, dict):
+                raise ValueError(f"bibliography.items[{i}].library must describe a Library record")
+            item["library"] = {"recordId": _text(lib.get("recordId"), f"bibliography.items[{i}].library.recordId", 240),
+                               "revision": _text(str(lib.get("revision") or ""), f"bibliography.items[{i}].library.revision", 40, False)}
+            if lib.get("contentSha256"):
+                item["library"]["contentSha256"] = _sha(lib["contentSha256"], f"bibliography.items[{i}].library.contentSha256")
+        out.append(item)
+    markers = value.get("markers") or {}
+    if not isinstance(markers, dict) or len(markers) > MAX_MARKERS:
+        raise ValueError(f"publication.bibliography.markers must map at most {MAX_MARKERS} citation markers")
+    for k, v in markers.items():
+        if not CITATION_MARKER.fullmatch(k):
+            raise ValueError(f"bibliography.markers key {k[:40]!r} is not a citation marker")
+        _text(v, "bibliography.markers value", 400)
     return {"schema": BIBLIOGRAPHY_SCHEMA, "style": _text(value.get("style"), "bibliography.style", 40),
-            "items": out, "unresolved": [_text(k, "bibliography.unresolved", 120) for k in value.get("unresolved") or []]}
+            "items": out, "unresolved": [_text(k, "bibliography.unresolved", 120) for k in value.get("unresolved") or []],
+            "markers": dict(markers)}
+
+
+def apply_citations(text: str, bibliography: dict | None) -> str:
+    """Substitute each citation marker with the in-text string Workspace rendered for it. Research formats nothing:
+    a marker the snapshot does not cover stays visible."""
+    markers = (bibliography or {}).get("markers") or {}
+    return CITATION_MARKER.sub(lambda m: markers.get(m.group(0), m.group(0)), text) if markers else text
 
 
 def normalize_publication(value: Any, workspace_project_ref: str | None) -> dict | None:
@@ -543,7 +569,9 @@ def public_publication(document: dict) -> dict | None:
         sub = pub["submission"]
         out["submission"] = {k: sub[k] for k in ("status", "institution", "course", "assignment", "submittedOn")}
     if pub.get("bibliography"):
-        out["bibliography"] = [{k: it[k] for k in ("key", "reference", "doi")} for it in pub["bibliography"]["items"]]
+        out["bibliography"] = [{**{k: it[k] for k in ("key", "reference", "doi")},
+                                **({"libraryRecordId": it["library"]["recordId"]} if it.get("library") else {})}
+                               for it in pub["bibliography"]["items"]]
     return out
 
 
@@ -1011,7 +1039,9 @@ def public_article(session: Session, slug: str) -> dict | None:
     return {"schema": "sc-research-public-article/1.0", "slug": entry.slug, "title": rev.document["title"],
             "listed": art.publication_status == "published",
             "summary": rev.document["summary"], "area": area, "revision": released.revision_number,
-            "releasedAt": released.released_at.isoformat(), "sections": rev.document["sections"], "references": refs,
+            "releasedAt": released.released_at.isoformat(), "references": refs,
+            "sections": [{**s, "body": apply_citations(s["body"], (rev.document.get("publication") or {}).get("bibliography"))}
+                         for s in rev.document["sections"]],
             "publication": public_publication(rev.document),
             "classificationNotice": (
                 "Cites " + ", ".join(sorted(notices)) + " outputs. These are not measurements." if notices else None)}

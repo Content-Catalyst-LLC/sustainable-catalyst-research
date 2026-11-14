@@ -118,3 +118,41 @@ def test_public_projection_shows_relations_and_bibliography_but_no_unverified_or
     for private in (OWNER, "proj-1", "publication-synthetic", SHA_A, SHA_B, "SYN101", "Synthetic University"):
         assert private not in text
     assert ed.editorial_integrity(session)["consistent"]
+
+
+# --- SC-CITE-01: the Workspace snapshot is stored and applied, never re-formatted -----------------------------------
+
+SNAPSHOT = {**BIBLIOGRAPHY, "markers": {"[@beerling2020potential, p. 244]": "(Beerling et al., 2020, p. 244)"},
+            "items": [{**BIBLIOGRAPHY["items"][0], "library": {"recordId": "wordpress:1:post:15670", "revision": "1",
+                                                               "contentSha256": "c" * 64}}]}
+
+
+def test_markers_stay_editable_and_the_public_view_applies_workspace_rendering(session, world):
+    body = "Potential is large [@beerling2020potential, p. 244]. Not covered [@other2021x]."
+    ed.add_revision(session, OWNER_ACTOR, slug=SLUG, base_revision=0, title="Synthetic ERW report", summary="Synthetic.",
+                    sections=[{"heading": "Overview", "body": body}], references=refs(session, world, "result", "study-package"),
+                    publication={"type": "report", "bibliography": SNAPSHOT})
+    assert ed.article_view(session, OWNER, SLUG)["head"]["sections"][0]["body"] == body  # stored as written
+    make_publishable(session, world)
+    sub = ed.submit_revision(session, OWNER_ACTOR, slug=SLUG, revision=1)
+    publish_area(session)
+    approve_article(session, sub["subjectRef"])
+    ed.publish_revision(session, OWNER_ACTOR, slug=SLUG, revision=1)
+    page = ed.public_article(session, SLUG)
+    assert page["sections"][0]["body"] == "Potential is large (Beerling et al., 2020, p. 244). Not covered [@other2021x]."
+    assert page["publication"]["bibliography"][0]["libraryRecordId"] == "wordpress:1:post:15670"
+
+
+@pytest.mark.parametrize("bad,problem", [
+    ({**SNAPSHOT, "markers": {"beerling": "(x)"}}, "not a citation marker"),
+    ({**SNAPSHOT, "markers": {"[@a]": ""}}, "markers value"),
+    ({**SNAPSHOT, "items": [{**BIBLIOGRAPHY["items"][0], "library": {"recordId": "r", "contentSha256": "x"}}]}, "SHA-256"),
+])
+def test_malformed_snapshots_are_refused(session, world, bad, problem):
+    with pytest.raises(ValueError, match=problem):
+        revise(session, world, {"type": "report", "bibliography": bad})
+
+
+def test_apply_citations_formats_nothing_itself():
+    assert ed.apply_citations("x [@a] y", None) == "x [@a] y"
+    assert ed.apply_citations("x [@a] [@a]", {"markers": {"[@a]": "(A, 2020)"}}) == "x (A, 2020) (A, 2020)"

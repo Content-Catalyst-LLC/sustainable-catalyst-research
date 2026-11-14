@@ -80,6 +80,27 @@
         </div>
         <label class="console-block">Summary<textarea id="pub-summary" rows="2" maxlength="10000"></textarea></label>
         <label class="console-block">Findings<textarea id="pub-body" rows="5"></textarea></label>
+        <div class="console-row">
+          <label>Publication type<select id="pub-type">
+            <option value="">Not set</option><option value="report">Report</option><option value="working-paper">Working paper</option>
+            <option value="policy-brief">Policy brief</option><option value="interactive-analysis">Interactive analysis</option>
+          </select></label>
+          <label>Citation style<select id="pub-cite-style">
+            <option value="harvard">Harvard</option><option value="apa">APA 7</option><option value="harvard-erw-v132">Harvard (ERW v1.3.2)</option>
+          </select></label>
+        </div>
+        <fieldset id="pub-cite" class="console-refs"><legend>Citation Studio</legend>
+          <p class="console-fine">References come from the entry's Workspace project (the same records, formatting and Library
+            provenance as the Reporting Studio). Insert adds a marker; the saved revision stores Workspace's bibliography snapshot.</p>
+          <button type="button" id="pub-cite-load" class="console-small">Load project references</button>
+          <ul id="pub-cite-list"></ul>
+        </fieldset>
+        <fieldset id="pub-studio" class="console-refs"><legend>Reporting Studio manuscript</legend>
+          <button type="button" id="pub-studio-load" class="console-small">List Studio manuscripts</button>
+          <select id="pub-studio-doc"></select>
+          <button type="button" id="pub-studio-use" class="console-small" disabled>Use this exact revision</button>
+          <p id="pub-studio-note" class="console-fine"></p>
+        </fieldset>
         <fieldset id="pub-refs" class="console-refs"><legend>Linked outputs</legend></fieldset>
         <div class="console-actions">
           <button type="button" id="pub-revise">Save article revision</button>

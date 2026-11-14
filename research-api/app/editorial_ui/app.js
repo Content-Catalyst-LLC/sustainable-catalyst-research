@@ -77,16 +77,22 @@
         a.revisions.map((r) => el('tr', {}, el('td', {}, 'r' + r.revision), el('td', {}, r.author, el('div', { class: 'muted' }, r.authorRole)),
           el('td', {}, el('code', {}, r.subjectRef)),
           el('td', {}, DIMENSIONS.map((d) => el('div', { class: r.signedApprovals[d] ? 'ok' : 'muted' }, (r.signedApprovals[d] ? '✓ ' : '· ') + d))))))));
+    const bib = head.publication && head.publication.bibliography;
+    if (bib) wrap.append(el('div', { class: 'card' }, el('h2', {}, `Bibliography snapshot (${bib.style}, from Workspace)`),
+      el('ol', {}, bib.items.map((it) => el('li', {}, it.reference, it.library ? el('div', { class: 'muted' }, 'Library ' + it.library.recordId) : '')))));
     if (a.headReferences.length) wrap.append(el('div', { class: 'card' }, el('h2', {}, 'Head references (publication checks)'), referencesTable(a.headReferences)));
     wrap.append(el('div', { class: 'card' }, el('h2', {}, 'Write revision r' + (a.headRevision + 1)),
       el('label', { for: 'r-title' }, 'Title'), el('input', { id: 'r-title', value: head.title }),
       el('label', { for: 'r-summary' }, 'Summary'), el('textarea', { id: 'r-summary' }, head.summary),
       el('label', { for: 'r-sections' }, 'Sections (JSON list of {heading, body})'), el('textarea', { id: 'r-sections', style: 'min-height:160px' }, JSON.stringify(head.sections, null, 2)),
       el('label', { for: 'r-refs' }, 'References (JSON list of {objectId, role, pin, caption, packageId?})'), el('textarea', { id: 'r-refs', style: 'min-height:120px' }, JSON.stringify(head.references, null, 2)),
+      el('label', { for: 'r-pub' }, 'Publication (JSON: type, derivedFrom, and the bibliography snapshot Workspace returned; empty for none)'),
+      el('textarea', { id: 'r-pub', style: 'min-height:100px' }, head.publication ? JSON.stringify(head.publication, null, 2) : ''),
       el('label', { for: 'r-change' }, 'Change summary'), el('input', { id: 'r-change' }),
       el('button', { onclick: () => act('write revision', () => call('POST', `/editorial/articles/${slug}/revisions`, {
         baseRevision: a.headRevision, title: $('r-title').value, summary: $('r-summary').value, changeSummary: $('r-change').value,
-        sections: JSON.parse($('r-sections').value), references: JSON.parse($('r-refs').value) })).then(() => open(slug)) }, 'Save revision'),
+        sections: JSON.parse($('r-sections').value), references: JSON.parse($('r-refs').value),
+        ...($('r-pub').value.trim() ? { publication: JSON.parse($('r-pub').value) } : {}) })).then(() => open(slug)) }, 'Save revision'),
       el('button', { class: 'secondary', disabled: a.headRevision ? null : 'disabled', onclick: () => act('submit r' + a.headRevision, () => call('POST', `/editorial/articles/${slug}/revisions/${a.headRevision}/submit`)).then(() => open(slug)) }, 'Submit head for review')));
     if (a.submittedRevision) {
       wrap.append(el('div', { class: 'card' }, el('h2', {}, 'Review of r' + a.submittedRevision),
