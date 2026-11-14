@@ -446,7 +446,9 @@ def _submission(value: Any, name: str) -> dict:
     status = value.get("status", "unverified")
     if status not in SUBMISSION_STATUSES:
         raise ValueError(f"{name}.status must be one of {list(SUBMISSION_STATUSES)}")
-    out = {"status": status, "sha256": _sha(value.get("sha256"), f"{name}.sha256")}
+    out = {"status": status}
+    if value.get("sha256") is not None or status == "verified":  # which file was submitted is known only once verified
+        out["sha256"] = _sha(value.get("sha256"), f"{name}.sha256")
     for k, limit in (("institution", 200), ("course", 200), ("assignment", 200), ("submittedOn", 40),
                      ("receiptRef", 300)):
         out[k] = _text(value.get(k, ""), f"{name}.{k}", limit, False)

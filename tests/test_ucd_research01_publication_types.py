@@ -53,6 +53,7 @@ def test_publication_type_origins_and_bibliography_are_part_of_the_hashed_revisi
       "derivedFrom": [{"relation": "derived-from", "kind": "research-article", "ref": "x"}]}, "itself the origin"),
     ({"type": "original-submission", "submission": {**SUBMISSION, "status": "verified"}}, "receipt"),
     ({"type": "original-submission", "submission": {**SUBMISSION, "sha256": "x"}}, "SHA-256"),
+    ({"type": "original-submission", "submission": {"status": "verified", "receiptRef": "r"}}, "SHA-256"),
     ({"type": "report", "derivedFrom": [{"relation": "inspired-by", "kind": "research-article", "ref": "x"}]},
      "relation"),
     ({"type": "report", "derivedFrom": [{"relation": "derived-from", "kind": "workspace-studio-revision",
@@ -73,6 +74,15 @@ def _publish(session, world, publication):
     publish_area(session)
     approve_article(session, sub["subjectRef"])
     return ed.publish_revision(session, OWNER_ACTOR, slug=SLUG, revision=1)
+
+
+def test_an_unverified_submission_need_not_name_a_file(session, world):
+    """Which candidate file was submitted is unknown until verified, so no hash is asserted for it."""
+    unknown = {"status": "unverified", "institution": "Synthetic University", "assignment": "Assignment 1"}
+    revise(session, world, {"type": "report", "derivedFrom": [
+        {"relation": "derived-from", "kind": "academic-submission", "label": "Coursework seed", "submission": unknown}]})
+    seed = ed.article_view(session, OWNER, SLUG)["head"]["publication"]["derivedFrom"][0]["submission"]
+    assert seed["status"] == "unverified" and "sha256" not in seed
 
 
 def test_an_unverified_original_submission_is_never_released(session, world):
