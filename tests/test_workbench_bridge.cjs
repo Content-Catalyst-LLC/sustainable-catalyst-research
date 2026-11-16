@@ -227,3 +227,66 @@ test("live WordPress RH-03 red status dot and border turn green only after verif
   // These must never color every branded red dot green.
   assert.doesNotMatch(css, /^#sc-research-v2 \.scrh-dot\s*\{/m);
 });
+
+// SC-PUB-ENDTOEND-01: released article view.
+function fakeDocument() {
+  function node(tag) {
+    return {
+      tag, children: [], textContent: "", className: "", attrs: {}, href: "",
+      classList: {set: new Set(), add(c) { this.set.add(c); }},
+      append(...xs) { this.children.push(...xs); }, prepend(...xs) { this.children.unshift(...xs); },
+      setAttribute(k, v) { this.attrs[k] = v; }
+    };
+  }
+  return {createElement: node};
+}
+function flatten(n, out = []) { out.push(n); (n.children || []).forEach((c) => flatten(c, out)); return out; }
+
+test("article slug is read only from a strict ?article= parameter", () => {
+  assert.equal(bridge.requestedArticle("?article=metrics-public-overview"), "metrics-public-overview");
+  assert.equal(bridge.requestedArticle("?x=1&article=a-b"), "a-b");
+  for (const bad of ["?article=../objects", "?article=Metrics", "?article=a%2Fb", "?particle=a", "", "?article=a--b"]) {
+    assert.equal(bridge.requestedArticle(bad), "", bad);
+  }
+});
+
+test("released article renders as text with verified DOI links only", () => {
+  const saved = global.document;
+  global.document = fakeDocument();
+  try {
+    const view = bridge.articleView({status: 200, body: {
+      schema: "sc-research-public-article/1.0", slug: "m", title: "<img src=x onerror=alert(1)>", listed: false,
+      area: {title: "Metrics"}, revision: 2, releasedAt: "2026-11-16T00:00:00Z", summary: "A\n\nB",
+      sections: [{heading: "Overview", body: "One"}],
+      references: [{role: "dataset", status: "available", kind: "dataset", title: "Data"}, {role: "figure", status: "unavailable"}],
+      publication: {type: "report", derivedFrom: [{relation: "derived-from", label: "Reporting Studio revision 3"}],
+        bibliography: [{reference: "Beerling 2020", doi: "10.1038/s41586-020-2448-9"}, {reference: "X", doi: "javascript:alert(1)"}]}
+    }}, "/research-hub/");
+    const nodes = flatten(view);
+    const text = nodes.map((n) => n.textContent).join("|");
+    assert.match(text, /<img src=x onerror=alert\(1\)>/);  // shown literally as text, never parsed
+    assert.match(text, /shared by link and is not listed/);
+    assert.match(text, /Revision 2/);
+    const links = nodes.filter((n) => n.tag === "a").map((n) => n.href);
+    assert.deepEqual(links, ["/research-hub/", "https://doi.org/10.1038/s41586-020-2448-9"]);
+    assert.ok(text.includes("no longer publicly available"));
+  } finally {
+    global.document = saved;
+  }
+});
+
+test("withdrawn article shows only its public notice", () => {
+  const saved = global.document;
+  global.document = fakeDocument();
+  try {
+    const view = bridge.articleView({status: 410, body: {
+      schema: "sc-research-public-tombstone/1.0", slug: "m", title: "Metrics", withdrawnAt: "2026-11-16T01:00:00Z",
+      notice: "Withdrawn for correction."}}, "/research-hub/");
+    const text = flatten(view).map((n) => n.textContent).join("|");
+    assert.match(text, /WITHDRAWN/);
+    assert.match(text, /Withdrawn for correction\./);
+    assert.ok(!flatten(view).some((n) => n.tag === "h3"));
+  } finally {
+    global.document = saved;
+  }
+});

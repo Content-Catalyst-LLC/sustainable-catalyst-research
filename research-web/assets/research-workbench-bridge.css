@@ -151,3 +151,23 @@
 #sc-research-v2 #scrh-home-articles tr[role="button"] { cursor: pointer; }
 #sc-research-v2 #scrh-graph-list .scrh-nav-preview-button { display: inline-block; }
 #sc-research-v2 [role="tabpanel"] h2:focus { outline: 2px solid #287b79; outline-offset: 5px; }
+
+/* SC-PUB-ENDTOEND-01: one released publication (?article=<slug>). */
+#sc-research-v2 .scrh-article {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-top: 4px solid #b00020;
+  padding: 24px clamp(16px, 4vw, 40px);
+  margin: 0 0 24px;
+  color: #171717;
+  max-width: 860px;
+}
+#sc-research-v2 .scrh-article h2 { font-size: 1.7rem; line-height: 1.25; margin: 4px 0 8px; color: #171717; }
+#sc-research-v2 .scrh-article h3 { font-size: 1.05rem; margin: 22px 0 8px; color: #171717; }
+#sc-research-v2 .scrh-article p { line-height: 1.65; overflow-wrap: anywhere; }
+#sc-research-v2 .scrh-article-kicker { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: #b00020; margin: 12px 0 0; }
+#sc-research-v2 .scrh-article-meta { font-size: .85rem; color: #555; }
+#sc-research-v2 .scrh-article-notice { border-left: 3px solid #b00020; padding-left: 10px; color: #333; }
+#sc-research-v2 .scrh-article-back { font-size: .85rem; color: #171717; }
+#sc-research-v2 .scrh-article-bibliography li, #sc-research-v2 .scrh-article-evidence li { margin: 4px 0; overflow-wrap: anywhere; }
+#sc-research-v2 .scrh-article-withdrawn { border-top-color: #555; }

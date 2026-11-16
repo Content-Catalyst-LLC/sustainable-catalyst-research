@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sustainable Catalyst Research Bridge
  * Description: Read-only, fail-closed bridge from the existing Research WordPress page to the approved persistent Research API.
- * Version: 0.5.1
+ * Version: 0.6.0
  * Requires PHP: 8.0
  * Author: Sustainable Catalyst
  * License: Proprietary
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const SC_RESEARCH_BRIDGE_VERSION = '0.5.1';
+const SC_RESEARCH_BRIDGE_VERSION = '0.6.0';
 /** SC-FIG-03B: the Lab release whose renderer files the Research figure lock pins (same bytes, SRI). */
 const SC_RESEARCH_FIGURES_LAB_RELEASE = '0.163.1.9';
 /** Figure channels this bridge release may show. A production channel needs a later, approved release. */
@@ -106,10 +106,11 @@ function sc_research_bridge_error() {
     );
 }
 
-/** Only these four GET routes can ever reach the upstream Research API. */
+/** Only these fixed GET routes (plus one released article by slug, below) can ever reach the upstream Research API. */
 function sc_research_bridge_paths(): array {
     return array(
         'status' => '/public/status',
+        'areas' => '/areas',
         'articles' => '/articles',
         'objects' => '/objects?limit=50',
         'graph' => '/graph/metadata?limit=50',
@@ -169,6 +170,25 @@ function sc_research_bridge_project(string $route, $payload) {
             'approved_areas' => $payload['approved_areas'],
             'approved_articles' => $payload['approved_articles'],
         );
+    }
+
+    if ($route === 'areas') {
+        if (!isset($payload['items']) || !is_array($payload['items'])) {
+            return sc_research_bridge_error();
+        }
+        $items = array();
+        foreach (array_slice($payload['items'], 0, 50) as $row) {
+            if (!is_array($row) || !is_string($row['slug'] ?? null) ||
+                !preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $row['slug'])) {
+                continue;
+            }
+            $items[] = array(
+                'slug' => $row['slug'],
+                'title' => sc_research_bridge_text($row['title'] ?? null),
+                'summary' => sc_research_bridge_text($row['summary'] ?? null, 1400),
+            );
+        }
+        return array('items' => $items);
     }
 
     if ($route === 'articles') {
@@ -268,6 +288,121 @@ function sc_research_bridge_upstream(string $path, int $limit, string $accept) {
     }
     return array((int) wp_remote_retrieve_response_code($result),
         strtolower((string) wp_remote_retrieve_header($result, 'content-type')), $body);
+}
+
+// ---------------------------------------------------------------------------------------------------
+// SC-PUB-ENDTOEND-01: one released article by slug. Research decides what is released (published or
+// unlisted revisions of published articles in published areas) and answers 410 with a tombstone after a
+// withdrawal; this facade re-projects through its own field allowlist and never caches.
+
+const SC_RESEARCH_ARTICLE_SLUG = '[a-z0-9]+(?:-[a-z0-9]+)*';
+
+function sc_research_bridge_not_found() {
+    return new WP_Error('sc_research_article_not_found', 'Research article not found.', array('status' => 404));
+}
+
+/** Plain text only: the page renders every field with textContent. */
+function sc_research_bridge_article_project($p): ?array {
+    if (!is_array($p) || ($p['schema'] ?? '') !== 'sc-research-public-article/1.0' ||
+        !is_string($p['slug'] ?? null) || !preg_match('/^' . SC_RESEARCH_ARTICLE_SLUG . '$/D', $p['slug']) ||
+        !is_int($p['revision'] ?? null) || !is_array($p['sections'] ?? null) || !is_bool($p['listed'] ?? null)) {
+        return null;
+    }
+    $area = is_array($p['area'] ?? null) ? $p['area'] : array();
+    $sections = array();
+    foreach (array_slice($p['sections'], 0, 40) as $row) {
+        if (is_array($row)) {
+            $sections[] = array('heading' => sc_research_bridge_text($row['heading'] ?? null, 300),
+                                'body' => sc_research_bridge_text($row['body'] ?? null, 60000));
+        }
+    }
+    $references = array();
+    foreach (array_slice(is_array($p['references'] ?? null) ? $p['references'] : array(), 0, 200) as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $ref = array('role' => sc_research_bridge_text($row['role'] ?? null, 32),
+                     'status' => ($row['status'] ?? '') === 'available' ? 'available' : 'unavailable');
+        if ($ref['status'] === 'available') {
+            $ref += array('title' => sc_research_bridge_text($row['title'] ?? null),
+                          'kind' => sc_research_bridge_text($row['kind'] ?? null, 48),
+                          'caption' => sc_research_bridge_text($row['caption'] ?? null, 300),
+                          'classification' => sc_research_bridge_text($row['classification'] ?? null, 48));
+        }
+        $references[] = $ref;
+    }
+    $publication = null;
+    if (is_array($p['publication'] ?? null)) {
+        $pub = $p['publication'];
+        $origins = array();
+        foreach (array_slice(is_array($pub['derivedFrom'] ?? null) ? $pub['derivedFrom'] : array(), 0, 40) as $o) {
+            if (is_array($o)) {
+                $origins[] = array('relation' => sc_research_bridge_text($o['relation'] ?? null, 32),
+                                   'kind' => sc_research_bridge_text($o['kind'] ?? null, 48),
+                                   'label' => sc_research_bridge_text($o['label'] ?? null, 300));
+            }
+        }
+        $bibliography = array();
+        foreach (array_slice(is_array($pub['bibliography'] ?? null) ? $pub['bibliography'] : array(), 0, 400) as $b) {
+            if (is_array($b)) {
+                $doi = sc_research_bridge_text($b['doi'] ?? null, 240);
+                $bibliography[] = array('key' => sc_research_bridge_text($b['key'] ?? null, 200),
+                                        'reference' => sc_research_bridge_text($b['reference'] ?? null, 2000),
+                                        'doi' => preg_match('/^10\.[0-9]{4,9}\/\S+$/D', $doi) ? $doi : '');
+            }
+        }
+        $publication = array('type' => sc_research_bridge_text($pub['type'] ?? null, 48),
+                             'derivedFrom' => $origins, 'bibliography' => $bibliography);
+    }
+    return array(
+        'schema' => 'sc-research-public-article/1.0',
+        'slug' => $p['slug'],
+        'title' => sc_research_bridge_text($p['title'] ?? null),
+        'summary' => sc_research_bridge_text($p['summary'] ?? null, 10000),
+        'listed' => $p['listed'],
+        'area' => array('slug' => sc_research_bridge_text($area['slug'] ?? null, 130),
+                        'title' => sc_research_bridge_text($area['title'] ?? null)),
+        'revision' => $p['revision'],
+        'releasedAt' => sc_research_bridge_text($p['releasedAt'] ?? null, 40),
+        'sections' => $sections,
+        'references' => $references,
+        'publication' => $publication,
+        'classificationNotice' => sc_research_bridge_text($p['classificationNotice'] ?? null, 300),
+    );
+}
+
+function sc_research_bridge_tombstone_project($p): ?array {
+    if (!is_array($p) || ($p['schema'] ?? '') !== 'sc-research-public-tombstone/1.0' ||
+        !is_string($p['slug'] ?? null) || !preg_match('/^' . SC_RESEARCH_ARTICLE_SLUG . '$/D', $p['slug'])) {
+        return null;
+    }
+    return array('schema' => 'sc-research-public-tombstone/1.0', 'slug' => $p['slug'], 'status' => 'withdrawn',
+                 'title' => sc_research_bridge_text($p['title'] ?? null),
+                 'withdrawnAt' => sc_research_bridge_text($p['withdrawnAt'] ?? null, 40),
+                 'notice' => sc_research_bridge_text($p['notice'] ?? null, 2000));
+}
+
+/** Returns array(status, body) or WP_Error. */
+function sc_research_bridge_fetch_article(string $slug) {
+    if (!sc_research_bridge_enabled() || !preg_match('/^' . SC_RESEARCH_ARTICLE_SLUG . '$/D', $slug) || strlen($slug) > 150) {
+        return sc_research_bridge_not_found();
+    }
+    $got = sc_research_bridge_upstream('/articles/' . $slug . '/content', 600001, 'application/json');
+    if (is_wp_error($got)) {
+        return $got;
+    }
+    if ($got[0] === 404) {
+        return sc_research_bridge_not_found();
+    }
+    if (!in_array($got[0], array(200, 410), true) || strpos($got[1], 'application/json') === false) {
+        return sc_research_bridge_error();
+    }
+    $payload = json_decode($got[2], true);
+    $body = $got[0] === 200 ? sc_research_bridge_article_project($payload) : sc_research_bridge_tombstone_project($payload);
+    if ($body === null || $body['slug'] !== $slug) {
+        return sc_research_bridge_error();
+    }
+    return array($got[0], $body);
 }
 
 function sc_research_bridge_fetch(string $route) {
@@ -579,6 +714,23 @@ function sc_research_bridge_register_routes(): void {
             },
         ));
     }
+    register_rest_route(SC_RESEARCH_BRIDGE_NAMESPACE, '/articles/(?P<slug>' . SC_RESEARCH_ARTICLE_SLUG . ')', array(
+        'methods' => 'GET',
+        'permission_callback' => '__return_true',
+        'callback' => static function ($request) {
+            $result = sc_research_bridge_fetch_article((string) $request['slug']);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+            $response = new WP_REST_Response($result[1], $result[0]);
+            $response->header('Cache-Control', 'no-store');
+            $response->header('X-Content-Type-Options', 'nosniff');
+            if ($result[0] !== 200 || $result[1]['listed'] !== true) {
+                $response->header('X-Robots-Tag', 'noindex');
+            }
+            return $response;
+        },
+    ));
 }
 add_action('rest_api_init', 'sc_research_bridge_register_routes');
 
