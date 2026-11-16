@@ -162,3 +162,31 @@ def test_workspace_account_sessions_are_admitted_only_where_configured(monkeypat
         us.verify_session(legacy, key=PUB, env={us.METHODS_ENV: "erw-account-session"})
     status = us.public_status({**SESSIONS, "RESEARCH_WORKSPACE_PUBLIC_KEY_FILE": "/k", us.METHODS_ENV: "erw-account-session"})
     assert status["authentication"] == ["erw-account-session", "sc-identity-access-token", "sc-identity-oidc-session"]
+
+
+def test_owner_releases_own_object_only_with_every_signed_approval_and_reproduction(console):
+    """SC-PUB-ENDTOEND-01: the console release route applies the operator route's rule to the signed owner."""
+    from tests.test_sc_ed01_editorial import signed_record
+    client, exports = console
+    out = _import(client, exports).json()
+    result = out["objects"]["output:polyglot-result"]["id"]
+    release = f"{C}/objects/{result}/public-projection"
+    assert client.post(release, headers=auth(B)).status_code == 404  # another person: not even visible
+    as_editor = {**auth(EDITOR), "X-SC-Owner-Scope": A, "X-SC-Editor-Attestation": b64(attestation(grantee=EDITOR))}
+    assert client.post(release, headers=as_editor).status_code == 403  # editors never release
+    r = client.post(release, headers=auth())
+    assert r.status_code == 403 and "approvals" in r.json()["detail"]
+    subject = client.get(f"{C}/objects/{result}", headers=auth()).json()["subjectRef"]
+    for dim in ("scientific", "rights", "ownership", "publication"):
+        rec = client.post(f"{C}/objects/{result}/approvals/{dim}", headers=auth(),
+                          json={"record": signed_record(subject, dim, owner=A, approver="workspace-user:reviewer")})
+        assert rec.status_code == 200, rec.text
+    r = client.post(release, headers=auth())
+    assert r.status_code == 403 and "reproduction" in r.json()["detail"]  # results need an independent reproduction
+    g = grant(run="run-julia", grant_id="g-julia")
+    exports[g] = export(run="run-julia", grant_id="g-julia", values={"intercept": 1.5, "slope": 0.25 + 1e-15})
+    client.post(f"{C}/objects/{result}/reproductions", headers=auth(), json={"grant": g, "relTol": 1e-9, "absTol": 1e-12})
+    r = client.post(release, headers=auth())
+    assert r.status_code == 200 and r.json()["visibility"] == "public-approved", r.text
+    # Released for citation only: nothing is public until its entry and area are published.
+    assert client.get("/api/research/v1/objects").json()["items"] == []
