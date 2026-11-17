@@ -241,3 +241,13 @@ def approval_route(object_id: str, dimension: str, body: dict = Body(...), actor
     row = cv._commit(session, cv.record_signed_approval, owner_scope=actor.owner, object_id=object_id,
                      dimension=dimension, record=body["record"])
     return {"dimension": row.dimension, "recordSha256": row.record_sha256, "signed": True}
+
+
+@router.post("/objects/{object_id}/public-projection")
+def public_projection_route(object_id: str, actor: ed.Actor = Depends(owner_only),
+                            session: Session = Depends(ws.get_session)):
+    """SC-PUB-ENDTOEND-01: the signed-in owner releases their own object for citation in a publication, under exactly
+    the operator route's rule (every signed approval, verified provenance and lineage, reproduction for results, figure
+    rights). The object is visible publicly only while its Research entry and area are also published."""
+    return cv._commit(session, cv.promote_public_projection, owner_scope=actor.owner, object_id=object_id,
+                      signed_only=True)

@@ -70,6 +70,130 @@
   }
   function statusText(element, text) { element.textContent = text; }
 
+  // SC-PUB-ENDTOEND-01: one released publication at <hub>?article=<slug>. Research decides what is released;
+  // a withdrawn article answers 410 with its public notice. Every field is rendered as text.
+  function requestedArticle(search) {
+    var match = /(?:^\?|&)article=([a-z0-9]+(?:-[a-z0-9]+)*)(?:&|$)/.exec(typeof search === "string" ? search : "");
+    return match && match[1].length <= 150 ? match[1] : "";
+  }
+  async function getArticle(slug, signal) {
+    var path = API_PREFIX === "/api/research/v1" ? "/articles/" + encodeURIComponent(slug) + "/content"
+      : "/articles/" + encodeURIComponent(slug);
+    var response = await fetch(API_PREFIX + path, {
+      credentials: "omit", cache: "no-store", redirect: "error",
+      headers: {Accept: "application/json"}, signal: signal
+    });
+    var type = response.headers.get("content-type") || "";
+    if (response.status === 404) return {status: 404, body: null};
+    if ((response.status !== 200 && response.status !== 410) || !type.toLowerCase().includes("application/json")) {
+      throw new Error("Public Research API unavailable");
+    }
+    var body = await response.json();
+    var schema = response.status === 200 ? "sc-research-public-article/1.0" : "sc-research-public-tombstone/1.0";
+    if (!body || body.schema !== schema || body.slug !== slug) throw new Error("Research article response mismatch");
+    return {status: response.status, body: body};
+  }
+  function paragraphs(text) {
+    return safeText(text, 60000).split(/\n\s*\n/).map(function (part) { return part.trim(); })
+      .filter(Boolean).map(function (part) { return make("p", part); });
+  }
+  function articleView(result, indexHref) {
+    var section = make("article", null, "scrh-article");
+    section.setAttribute("aria-label", "Research publication");
+    var back = make("a", "← Research index", "scrh-article-back");
+    back.href = indexHref;
+    section.append(back);
+    if (result.status === 404) {
+      section.append(make("h2", "Publication not found"),
+        make("p", "This research publication is not released, or the link is incorrect."));
+      return section;
+    }
+    var doc = result.body;
+    if (result.status === 410) {
+      section.classList.add("scrh-article-withdrawn");
+      section.append(make("p", "WITHDRAWN", "scrh-article-kicker"), make("h2", safeText(doc.title) || doc.slug),
+        make("p", "Withdrawn " + safeText(doc.withdrawnAt, 10) + ". The content is no longer published.", "scrh-article-meta"),
+        make("p", safeText(doc.notice, 2000), "scrh-article-notice"));
+      return section;
+    }
+    var area = doc.area && typeof doc.area === "object" ? doc.area : {};
+    var pub = doc.publication && typeof doc.publication === "object" ? doc.publication : null;
+    section.append(make("p", safeText(area.title, 350) || "Research", "scrh-article-kicker"),
+      make("h2", safeText(doc.title) || doc.slug),
+      make("p", (pub && pub.type ? safeText(pub.type, 48).replace(/-/g, " ") + " · " : "") + "Revision " +
+        (Number.isSafeInteger(doc.revision) ? doc.revision : "?") + " · released " + safeText(doc.releasedAt, 10),
+        "scrh-article-meta"));
+    if (doc.listed === false) section.append(make("p", "This publication is shared by link and is not listed in the Research index.", "scrh-article-notice"));
+    if (doc.classificationNotice) section.append(make("p", safeText(doc.classificationNotice, 300), "scrh-article-notice"));
+    if (doc.summary) {
+      var abstract = make("section", null, "scrh-article-abstract");
+      abstract.append(make("h3", "Summary"));
+      paragraphs(doc.summary).forEach(function (p) { abstract.append(p); });
+      section.append(abstract);
+    }
+    (Array.isArray(doc.sections) ? doc.sections.slice(0, 40) : []).forEach(function (part) {
+      if (!part) return;
+      section.append(make("h3", safeText(part.heading, 300)));
+      paragraphs(part.body).forEach(function (p) { section.append(p); });
+    });
+    var refs = Array.isArray(doc.references) ? doc.references.slice(0, 200) : [];
+    if (refs.length) {
+      section.append(make("h3", "Methods and supporting evidence"));
+      var evidence = make("ul", null, "scrh-article-evidence");
+      refs.forEach(function (ref) {
+        if (!ref) return;
+        evidence.append(make("li", ref.status === "available" ?
+          safeText(ref.kind, 48) + " · " + safeText(ref.title) + (ref.classification ? " · " + safeText(ref.classification, 48) : "") +
+          (ref.caption ? " — " + safeText(ref.caption, 300) : "") :
+          safeText(ref.role, 32) + " · no longer publicly available"));
+      });
+      section.append(evidence);
+    }
+    if (pub && Array.isArray(pub.derivedFrom) && pub.derivedFrom.length) {
+      section.append(make("h3", "Provenance"));
+      var origins = make("ul");
+      pub.derivedFrom.slice(0, 40).forEach(function (o) {
+        if (o) origins.append(make("li", safeText(o.relation, 32).replace(/-/g, " ") + ": " + safeText(o.label, 300)));
+      });
+      section.append(origins);
+    }
+    if (pub && Array.isArray(pub.bibliography) && pub.bibliography.length) {
+      section.append(make("h3", "References"));
+      var bib = make("ol", null, "scrh-article-bibliography");
+      pub.bibliography.slice(0, 400).forEach(function (b) {
+        if (!b) return;
+        var li = make("li", safeText(b.reference, 2000) + " ");
+        if (typeof b.doi === "string" && /^10\.[0-9]{4,9}\/\S+$/.test(b.doi)) {
+          var link = make("a", "https://doi.org/" + b.doi);
+          link.href = "https://doi.org/" + encodeURI(b.doi);
+          link.rel = "noopener";
+          li.append(link);
+        }
+        bib.append(li);
+      });
+      section.append(bib);
+    }
+    return section;
+  }
+  async function showArticle(root, slug, signal) {
+    var result;
+    try {
+      result = await getArticle(slug, signal);
+    } catch (_) {
+      result = null;
+    }
+    var anchor = root.querySelector("#scrh-view-overview") || root;
+    var index = (typeof location !== "undefined" ? location.pathname : "") || "./";
+    var view = result ? articleView(result, index) : make("p",
+      "This research publication could not be loaded from the public Research API.", "scrh-api-status");
+    anchor.prepend(view);
+    if (typeof view.scrollIntoView === "function") view.scrollIntoView();
+    if (result && result.status === 200 && typeof document !== "undefined") {
+      document.title = safeText(result.body.title) + " · Research · Sustainable Catalyst";
+    }
+    return result ? result.status : 0;
+  }
+
   // Search locally across already-approved, already-loaded public metadata.
   // No keystrokes, private terms or identifiers are sent to any provider.
   function filterApprovedItems(articles, objects, query, kind) {
@@ -119,8 +243,11 @@
       for (var i = 0; i < filtered.articles.length; i++) {
         var article = filtered.articles[i];
         var item = make("article", null, "scrh-api-item");
-        var title = make("h3", article.title || article.slug);
-        // Never advertise a public detail URL until the WordPress route is certified.
+        var title = make("h3");
+        // SC-PUB-ENDTOEND-01: the released-article route is served by the bridge (and by Research directly).
+        var open = make("a", article.title || article.slug);
+        open.href = "?article=" + encodeURIComponent(article.slug);
+        title.append(open);
         item.append(title, make("p", article.summary),
           make("small", "Article · " + article.area + " · " + article.state));
         list.append(item);
@@ -291,6 +418,8 @@
       render(wrapper, {articles: data[1], objects: data[2], graph: data[3]});
       reflectVerifiedPublicBackend(root, data[0]);
       root.dataset.scBridgeStatus = "connected";
+      var requested = requestedArticle(typeof location !== "undefined" ? location.search : "");
+      if (requested) root.dataset.scArticleStatus = String(await showArticle(root, requested, controller.signal));
       return {status: "connected"};
     } catch (_) {
       root.dataset.scBridgeStatus = "unavailable";
@@ -302,7 +431,7 @@
     }
   }
   var api = Object.freeze({
-    connect: connect, normalizeArticle: normalizeArticle,
+    connect: connect, normalizeArticle: normalizeArticle, requestedArticle: requestedArticle, articleView: articleView,
     normalizeObject: normalizeObject, filterApprovedItems: filterApprovedItems,
     reflectVerifiedPublicBackend: reflectVerifiedPublicBackend
   });

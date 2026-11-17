@@ -115,7 +115,52 @@ $graph = sc_research_bridge_fetch('graph');
 sc_assert(count($graph['nodes']) === 1, 'unapproved graph node omitted');
 sc_assert(count($graph['edges']) === 1, 'edges to unapproved graph nodes omitted');
 
+// SC-PUB-ENDTOEND-01: one released article; an independent allowlist strips anything Research might add.
+$released = array(
+    'schema' => 'sc-research-public-article/1.0', 'slug' => 'metrics-public-overview', 'title' => 'Metrics',
+    'listed' => true, 'summary' => 'S', 'area' => array('slug' => 'metrics', 'title' => 'Metrics', 'ownerScope' => 'PRIVATE_OWNER'),
+    'revision' => 2, 'releasedAt' => '2026-11-16T00:00:00+00:00',
+    'sections' => array(array('heading' => 'Overview', 'body' => 'Text', 'pin' => 'PRIVATE_PIN')),
+    'references' => array(array('role' => 'dataset', 'status' => 'available', 'title' => 'Data', 'kind' => 'dataset',
+                                'publicKey' => 'k', 'objectId' => 'PRIVATE_OBJECT', 'provenance' => '/x')),
+    'publication' => array('type' => 'report', 'derivedFrom' => array(array('relation' => 'derived-from',
+        'kind' => 'workspace-studio-revision', 'label' => 'Reporting Studio revision 3', 'workspaceProjectId' => 'PRIVATE_PROJECT',
+        'documentSha256' => 'PRIVATE_SHA')),
+        'bibliography' => array(array('key' => 'beerling2020', 'reference' => 'Beerling 2020', 'doi' => '10.1038/s41586-020-2448-9'),
+                                array('key' => 'x', 'reference' => 'X', 'doi' => 'javascript:alert(1)'))),
+    'classificationNotice' => null, 'ownerScope' => 'PRIVATE_OWNER',
+);
+fake_json_response($released);
+$GLOBALS['sc_test_requests'] = array();
+$got = sc_research_bridge_fetch_article('metrics-public-overview');
+sc_assert(!is_wp_error($got) && $got[0] === 200, 'released article served');
+sc_assert(str_ends_with($GLOBALS['sc_test_requests'][0]['url'], '/api/research/v1/articles/metrics-public-overview/content'),
+    'article fetched from its fixed content route');
+sc_assert(!str_contains(json_encode($got[1]), 'PRIVATE_'), 'owner scopes, pins, object ids and Workspace ids never pass');
+sc_assert($got[1]['publication']['bibliography'][0]['doi'] === '10.1038/s41586-020-2448-9', 'DOI kept');
+sc_assert($got[1]['publication']['bibliography'][1]['doi'] === '', 'non-DOI link dropped');
+$GLOBALS['sc_test_requests'] = array();
+sc_assert(is_wp_error(sc_research_bridge_fetch_article('../objects')), 'slug pattern enforced');
+sc_assert(is_wp_error(sc_research_bridge_fetch_article('Metrics')), 'uppercase slug refused');
+sc_assert(count($GLOBALS['sc_test_requests']) === 0, 'refused slugs never reach Research');
+fake_json_response(array_merge($released, array('slug' => 'another-article')));
+sc_assert(is_wp_error(sc_research_bridge_fetch_article('metrics-public-overview')), 'slug mismatch fails closed');
+fake_json_response(array('schema' => 'sc-research-public-tombstone/1.0', 'slug' => 'metrics-public-overview',
+    'status' => 'withdrawn', 'title' => 'Metrics', 'withdrawnAt' => '2026-11-16T01:00:00+00:00', 'notice' => 'Withdrawn.',
+    'ownerScope' => 'PRIVATE_OWNER'), 410);
+$gone = sc_research_bridge_fetch_article('metrics-public-overview');
+sc_assert(!is_wp_error($gone) && $gone[0] === 410 && $gone[1]['status'] === 'withdrawn', 'withdrawal answers 410 tombstone');
+sc_assert(!isset($gone[1]['sections']) && !str_contains(json_encode($gone[1]), 'PRIVATE_'), 'tombstone carries no content');
+fake_json_response(array('detail' => 'Research article not found'), 404);
+$missing = sc_research_bridge_fetch_article('metrics-public-overview');
+sc_assert(is_wp_error($missing) && $missing->code === 'sc_research_article_not_found', 'unreleased article is 404');
+fake_json_response(array('items' => array(array('slug' => 'metrics', 'title' => 'Metrics', 'summary' => 'S', 'owner' => 'PRIVATE_OWNER'),
+    array('slug' => '../bad'))));
+$areas = sc_research_bridge_fetch('areas');
+sc_assert(count($areas['items']) === 1 && !str_contains(json_encode($areas), 'PRIVATE_'), 'areas projected');
+
 $GLOBALS['sc_test_options']['sc_research_bridge_enabled'] = '0';
 sc_assert(is_wp_error(sc_research_bridge_fetch('articles')), 'disable toggle is enforced instantly');
+sc_assert(is_wp_error(sc_research_bridge_fetch_article('metrics-public-overview')), 'disabled bridge serves no article');
 
 echo "PASS: WordPress Research bridge origin, settings, fail-closed routing and public-only projection\n";

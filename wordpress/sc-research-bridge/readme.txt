@@ -3,7 +3,7 @@ Contributors: sustainable-catalyst
 Tags: research, public metadata, backend, research publications
 Requires at least: 6.0
 Requires PHP: 8.0
-Stable tag: 0.5.1
+Stable tag: 0.6.0
 License: Proprietary
 
 A fail-closed, read-only WordPress bridge to the persistent Sustainable Catalyst Research API.
@@ -79,6 +79,14 @@ must not enable backend requests or change live site routing.
   Workspace sessions, private database connections or production-host services.
 - Disabling the flag or deactivating the plugin removes its live integration;
   the existing page and its editor-created static preview remain.
+
+== 0.6.0 released publications on the Research Hub (SC-PUB-ENDTOEND-01) ==
+
+* `GET /wp-json/sc-research/v1/articles/{slug}` serves one released article from Research's `/articles/{slug}/content`
+  through its own field allowlist (no owner scopes, object ids, pins or Workspace ids); a withdrawn article answers 410
+  with its public notice; unlisted and withdrawn responses carry `X-Robots-Tag: noindex`; never cached.
+* `GET /wp-json/sc-research/v1/areas` lists published Research areas.
+* The Research Hub page opens a publication at `?article=<slug>` and links reviewed articles to it.
 
 == 0.5.1 runtime uncertainty records in the facade (SC-FIG-05.3), release candidate ==
 
