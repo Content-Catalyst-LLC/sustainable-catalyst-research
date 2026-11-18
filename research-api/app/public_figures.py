@@ -36,6 +36,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from . import convergence as cv
 from . import figure_releases as fr
 from . import object_registry as md
 from . import workspaces as ws
@@ -171,6 +172,7 @@ def load_release(session: Session, public_key: str) -> dict:
     if errors:
         raise NotServed("; ".join(errors))
     return {"object": obj, "article": article, "area": area, "bundle": bundle, "bundleSha256": binding["bundleSha256"],
+            "reviewDisclosure": cv.review_disclosure(session, obj),
             "channel": release_channel, "files": files, "release": release, "provenanceSha256": prov.record_sha256}
 
 
@@ -186,7 +188,10 @@ def public_package(release: dict) -> dict:
         "schema": SCHEMA, "id": obj.public_key, "article": release["article"], "area": release["area"],
         "title": obj.title, "figureId": b["figureId"], "version": b.get("version", 1),
         "evidenceClass": b["evidenceClass"], "measurementStatus": b["scientificContext"]["measurementStatus"],
-        "dataClassification": obj.data_classification, "classificationNotice": NOTICE.get(b["evidenceClass"]),
+        "dataClassification": obj.data_classification,
+        "classificationNotice": " ".join(n for n in (NOTICE.get(b["evidenceClass"]), (
+            release["reviewDisclosure"]["statement"] if not release["reviewDisclosure"]["independentReview"] else None)) if n) or None,
+        "reviewDisclosure": release["reviewDisclosure"],
         "release": {"channel": release["channel"], "label": label, "authority": "sc-research",
                     "bundleSha256": release["bundleSha256"], "provenanceSha256": release["provenanceSha256"],
                     "registryVersion": obj.source_version, "articleRevision": rel.revision_number,

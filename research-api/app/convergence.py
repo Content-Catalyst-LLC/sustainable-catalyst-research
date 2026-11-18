@@ -50,6 +50,13 @@ WS_APPROVAL_SCHEMA = "sc-workspace-human-approval-request/1.0"
 WS_DECISION_SCHEMA = "sc-workspace-human-approval-decision/1.0"
 # SC-ED-01: decisions made through Workspace's authenticated approval service, signed by Workspace.
 WS_APPROVAL_RECORD_SCHEMA = "sc-workspace-research-approval-record/1.0"
+# SC-PUB-SELF-01: a Workspace owner's authorization of their own work. Accepted only where this service is configured
+# to accept it, only with a fresh step-up, and always disclosed publicly as not independently reviewed.
+OWNER_SELF_ROLE = "research_owner_self_authorization"
+OWNER_SELF_KIND = "owner-self-authorization"
+SELF_AUTHORIZATION_POLICY_ENV = "RESEARCH_OWNER_SELF_AUTHORIZATION"
+SELF_AUTHORIZED_STATEMENT = "Author-reviewed: authorized for publication by its author; not independently reviewed."
+INDEPENDENT_STATEMENT = "Reviewed by approvers other than the author before publication."
 # Workspace cross-product research handoff fabric (reused for follow-up requests).
 WS_HANDOFF_PRODUCTS = frozenset({"workbench", "research-lab", "decision-studio", "platform-core"})
 WS_HANDOFF_INTENTS = frozenset({"analyze", "simulate", "visualize", "validate", "compare", "decide"})
@@ -737,7 +744,7 @@ def subject_ref(obj: md.ResearchObject, prov: OutputProvenance) -> str:
 
 def record_workspace_approval(
     session: Session, *, owner_scope: str, object_id: str, dimension: str,
-    approval: dict, decision: dict, signed_record: dict | None = None,
+    approval: dict, decision: dict, signed_record: dict | None = None, owner_self_authorized: bool = False,
 ) -> PublicationApproval:
     """Record one Workspace human-governance decision for one approval dimension."""
     if dimension not in APPROVAL_ACTIONS:
@@ -759,7 +766,9 @@ def record_workspace_approval(
     actor = decision.get("actor") or {}
     if actor.get("actorType") != "human" or not actor.get("actorId") or not actor.get("role"):
         raise ValueError("A human Workspace actor is required")
-    if actor.get("actorId") == (approval.get("requester") or {}).get("actorId"):
+    if actor.get("role") == OWNER_SELF_ROLE and not owner_self_authorized:
+        raise ValueError("An owner self-authorization is accepted only as a verified, labelled signed record")
+    if actor.get("actorId") == (approval.get("requester") or {}).get("actorId") and not owner_self_authorized:
         raise ValueError("Self-approval is prohibited")
     if session.scalar(select(PublicationApproval).where(
             PublicationApproval.object_id == obj.id, PublicationApproval.dimension == dimension)):
@@ -809,6 +818,10 @@ def require_step_up_evidence(body: dict) -> None:
     The evidence is inside the Workspace-signed record, so it cannot be added afterwards."""
     if step_up_policy() != "required":
         return
+    _require_fresh_step_up(body)
+
+
+def _require_fresh_step_up(body: dict) -> None:
     auth = body.get("authentication") if isinstance(body.get("authentication"), dict) else {}
     if auth.get("decider") != STEP_UP_DECIDER_METHOD or auth.get("stepUp") is not True:
         raise PermissionError("The approval was not decided with a fresh Sustainable Catalyst Identity sign-in (step-up)")
@@ -821,17 +834,64 @@ def require_step_up_evidence(body: dict) -> None:
         raise PermissionError("The decider's step-up sign-in was not fresh when the approval was decided")
 
 
+def self_authorization_policy() -> str:
+    """`accepted` or `refused` (the default): whether owner self-authorizations count as approvals here."""
+    return "accepted" if os.getenv(SELF_AUTHORIZATION_POLICY_ENV, "").strip().lower() == "accepted" else "refused"
+
+
+def owner_self_authorized(body: dict) -> bool:
+    """True for a valid owner self-authorization, False for any other decision; raises if a record claims, or looks
+    like, a self-authorization without every element of one. Step-up is required whatever the general policy."""
+    decision = body.get("decision") or {}
+    actor, review = decision.get("actor") or {}, body.get("review") if isinstance(body.get("review"), dict) else {}
+    if OWNER_SELF_KIND not in (review.get("kind"), decision.get("reviewKind")) and actor.get("role") != OWNER_SELF_ROLE:
+        return False
+    if self_authorization_policy() != "accepted":
+        raise PermissionError("This Research service does not accept owner self-authorization; an independent approver is required")
+    if (review.get("kind"), decision.get("reviewKind"), actor.get("role")) != (OWNER_SELF_KIND, OWNER_SELF_KIND, OWNER_SELF_ROLE) \
+            or review.get("independent") is not False or decision.get("independentReview") is not False:
+        raise ValueError("An owner self-authorization must be labelled as one, and as not independent, throughout")
+    if actor.get("actorId") != body.get("ownerScope"):
+        raise PermissionError("Only the Workspace owner can self-authorize")
+    if not str(review.get("attestation") or "").strip():
+        raise ValueError("An owner self-authorization must carry the author's declaration")
+    auth = body.get("authentication") if isinstance(body.get("authentication"), dict) else {}
+    if auth.get("revisionConfirmed") is not True:
+        raise ValueError("An owner self-authorization must confirm the exact revision")
+    _require_fresh_step_up(body)
+    return True
+
+
+def review_disclosure(session: Session, obj: md.ResearchObject) -> dict:
+    """What the public may be told about review of the current revision. Independent only if no dimension of it was
+    self-authorized by its owner."""
+    prov = _provenance(session, obj)
+    current = subject_ref(obj, prov) if prov else None
+    rows = [r for r in session.scalars(select(PublicationApproval).where(PublicationApproval.object_id == obj.id)).all()
+            if r.subject_ref == current]
+    selfs = sorted({r.dimension for r in rows if r.actor_role == OWNER_SELF_ROLE})
+    if selfs:
+        return {"status": "author-reviewed", "independentReview": False, "selfAuthorizedDimensions": selfs,
+                "statement": SELF_AUTHORIZED_STATEMENT}
+    if rows:
+        return {"status": "reviewed-by-other-approvers", "independentReview": True, "selfAuthorizedDimensions": [],
+                "statement": INDEPENDENT_STATEMENT}
+    return {"status": "unreviewed", "independentReview": False, "selfAuthorizedDimensions": [], "statement": None}
+
+
 def record_signed_approval(
     session: Session, *, owner_scope: str, object_id: str, dimension: str, record: Any, key=None,
 ) -> PublicationApproval:
     body = verify_signed_approval(record, key)
+    self_authorized = owner_self_authorized(body)
     require_step_up_evidence(body)
     if body.get("ownerScope") != owner_scope:
         raise PermissionError("The approval was issued for another Workspace owner")
     if body.get("dimension") != dimension:
         raise ValueError(f"The signed record approves {body.get('dimension')!r}, not {dimension!r}")
     return record_workspace_approval(session, owner_scope=owner_scope, object_id=object_id, dimension=dimension,
-                                     approval=body["approval"], decision=body["decision"], signed_record=record)
+                                     approval=body["approval"], decision=body["decision"], signed_record=record,
+                                     owner_self_authorized=self_authorized)
 
 
 def approval_state(session: Session, obj: md.ResearchObject, *, signed_only: bool = False) -> dict:
@@ -922,7 +982,7 @@ def private_knowledge_graph(session: Session, *, owner_scope: str, area_slug: st
             "interpretation": "Private provenance and dependency graph; relations are recorded lineage, not scientific proof."}
 
 
-def public_provenance(obj: md.ResearchObject, prov: OutputProvenance | None) -> dict:
+def public_provenance(obj: md.ResearchObject, prov: OutputProvenance | None, disclosure: dict | None = None) -> dict:
     """Explicit allow-list; never emits receipts, paths, owner scopes or private notes."""
     rec = prov.record if prov else {}
     rt = rec.get("runtime") or {}
@@ -940,6 +1000,7 @@ def public_provenance(obj: md.ResearchObject, prov: OutputProvenance | None) -> 
         "limitations": rec.get("limitations"),
         "figure": _public_figure_binding(rec.get("figure")),
         "review_status": "approved-public",
+        "reviewDisclosure": disclosure,
     }
 
 
@@ -1110,4 +1171,4 @@ def public_provenance_route(public_key: str, session: Session = Depends(ws.get_s
     row = session.execute(md.public_query(include_unlisted=True).where(md.ResearchObject.public_key == public_key)).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Research object not found")
-    return public_provenance(row[0], _provenance(session, row[0]))
+    return public_provenance(row[0], _provenance(session, row[0]), review_disclosure(session, row[0]))
