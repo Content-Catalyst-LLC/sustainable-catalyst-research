@@ -886,6 +886,7 @@ def publish_area(session: Session, actor: Actor, *, slug: str, record: Any, key=
     area = _area(session, slug)
     _require_steward(session, actor, area)
     body = cv.verify_signed_approval(record, key)
+    self_authorized = cv.owner_self_authorized(body)
     cv.require_step_up_evidence(body)
     approval, decision = body["approval"], body["decision"]
     if body.get("ownerScope") != actor.owner:
@@ -897,7 +898,8 @@ def publish_area(session: Session, actor: Actor, *, slug: str, record: Any, key=
     if approval.get("status") != "approved" or decision.get("decision") != "approve":
         raise ValueError("Only an approve decision can publish an area")
     who = decision.get("actor") or {}
-    if who.get("actorType") != "human" or who.get("actorId") == (approval.get("requester") or {}).get("actorId"):
+    if who.get("actorType") != "human" or (
+            who.get("actorId") == (approval.get("requester") or {}).get("actorId") and not self_authorized):
         raise ValueError("A different human Workspace approver is required")
     if session.scalar(select(AreaPublication).where(AreaPublication.workspace_approval_id == approval["approvalId"])):
         raise Conflict("This approval was already used; a re-publication needs a new approval")
@@ -908,7 +910,7 @@ def publish_area(session: Session, actor: Actor, *, slug: str, record: Any, key=
     session.flush()
     _event(session, actor, "area-published", area=area,
            detail={"subjectRef": approval["subjectRef"], "approver": who.get("actorId"),
-                   "recordSha256": cv.canonical_sha256(record)})
+                   "ownerSelfAuthorized": self_authorized, "recordSha256": cv.canonical_sha256(record)})
     return {"slug": area.slug, "visibility": area.visibility}
 
 
@@ -1036,6 +1038,11 @@ def public_article(session: Session, slug: str) -> dict | None:
                      "title": obj.title, "caption": r.get("caption", ""), "classification": classification,
                      "provenance": f"{PREFIX}/objects/{obj.public_key}/provenance"})
     area = ws.approved_workspace_view(session, slug)["area"]
+    # SC-PUB-SELF-01: say who reviewed this revision; the notice carries it to every existing public renderer.
+    review = cv.review_disclosure(session, session.get(md.ResearchObject, rev.object_id))
+    notice = " ".join(n for n in (
+        "Cites " + ", ".join(sorted(notices)) + " outputs. These are not measurements." if notices else None,
+        review["statement"] if not review["independentReview"] else None) if n) or None
     return {"schema": "sc-research-public-article/1.0", "slug": entry.slug, "title": rev.document["title"],
             "listed": art.publication_status == "published",
             "summary": rev.document["summary"], "area": area, "revision": released.revision_number,
@@ -1043,8 +1050,8 @@ def public_article(session: Session, slug: str) -> dict | None:
             "sections": [{**s, "body": apply_citations(s["body"], (rev.document.get("publication") or {}).get("bibliography"))}
                          for s in rev.document["sections"]],
             "publication": public_publication(rev.document),
-            "classificationNotice": (
-                "Cites " + ", ".join(sorted(notices)) + " outputs. These are not measurements." if notices else None)}
+            "reviewDisclosure": review,
+            "classificationNotice": notice}
 
 
 def public_tombstone(session: Session, slug: str) -> dict | None:
