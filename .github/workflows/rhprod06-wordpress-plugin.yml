@@ -33,6 +33,8 @@ jobs:
           php tests/php/test_research_bridge_figures.php
           php -l tests/php/test_research_bridge_pairing.php
           php tests/php/test_research_bridge_pairing.php
+          php -l tests/php/test_research_bridge_article_page.php
+          php tests/php/test_research_bridge_article_page.php
           grep -F 'Plugin Name: Sustainable Catalyst Research Bridge' wordpress/sc-research-bridge/sc-research-bridge.php
       - name: Test package invariants
         run: |

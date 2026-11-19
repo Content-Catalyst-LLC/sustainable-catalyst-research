@@ -3,7 +3,7 @@ Contributors: sustainable-catalyst
 Tags: research, public metadata, backend, research publications
 Requires at least: 6.0
 Requires PHP: 8.0
-Stable tag: 0.6.0
+Stable tag: 0.6.1
 License: Proprietary
 
 A fail-closed, read-only WordPress bridge to the persistent Sustainable Catalyst Research API.
@@ -79,6 +79,15 @@ must not enable backend requests or change live site routing.
   Workspace sessions, private database connections or production-host services.
 - Disabling the flag or deactivating the plugin removes its live integration;
   the existing page and its editor-created static preview remain.
+
+== 0.6.1 article indexing on the Research Hub page (RH-PUB-01) ==
+
+* The Hub page for one article (`/research-hub/?article=<slug>`) now states its indexing in the HTML, decided on the
+  server from Research's answer: a listed, released article is indexable under its own canonical URL, with its title
+  and summary; an unlisted, withdrawn or unknown article, an invalid slug and any Research outage are `noindex`
+  (meta robots and `X-Robots-Tag`) with the Hub as canonical. Works with WordPress core robots and Rank Math.
+* That page is never cached (`nocache_headers()`, `DONOTCACHEPAGE`), so unlisting or withdrawal reaches crawlers on
+  their next request. The Hub page itself, the REST facade, figures and the Lab pairing are unchanged.
 
 == 0.6.0 released publications on the Research Hub (SC-PUB-ENDTOEND-01) ==
 
