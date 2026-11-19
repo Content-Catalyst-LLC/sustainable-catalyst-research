@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sustainable Catalyst Research Bridge
  * Description: Read-only, fail-closed bridge from the existing Research WordPress page to the approved persistent Research API.
- * Version: 0.6.0
+ * Version: 0.6.1
  * Requires PHP: 8.0
  * Author: Sustainable Catalyst
  * License: Proprietary
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const SC_RESEARCH_BRIDGE_VERSION = '0.6.0';
+const SC_RESEARCH_BRIDGE_VERSION = '0.6.1';
 /** SC-FIG-03B: the Lab release whose renderer files the Research figure lock pins (same bytes, SRI). */
 const SC_RESEARCH_FIGURES_LAB_RELEASE = '0.163.1.9';
 /** Figure channels this bridge release may show. A production channel needs a later, approved release. */
@@ -416,6 +416,112 @@ function sc_research_bridge_fetch(string $route) {
     }
     return sc_research_bridge_project($route, json_decode($got[2], true));
 }
+
+// ---------------------------------------------------------------------------------------------------
+// RH-PUB-01 (0.6.1): the Hub page for one article (<hub>?article=<slug>) states its own indexing in the HTML.
+// Only a listed, released article is indexable, under its own canonical URL; an unlisted, withdrawn or unknown
+// article, an invalid slug and any Research outage are noindex with the Hub as canonical. The page is never cached,
+// so unlisting or withdrawal applies to crawlers on their next request. Research stays the authority.
+
+/** The requested article slug on the Research Hub page, '' for an invalid one, or null when none is requested. */
+function sc_research_bridge_article_request(): ?string {
+    if (!isset($_GET['article']) || !function_exists('is_page') || !is_page('research-hub')) { // phpcs:ignore WordPress.Security.NonceVerification
+        return null;
+    }
+    $slug = is_string($_GET['article']) ? $_GET['article'] : ''; // phpcs:ignore WordPress.Security.NonceVerification
+    return strlen($slug) <= 150 && preg_match('/^' . SC_RESEARCH_ARTICLE_SLUG . '$/D', $slug) ? $slug : '';
+}
+
+/** array('indexable' => bool, 'slug', 'title', 'summary'), fetched at most once per request. */
+function sc_research_bridge_article_page_state(?string $slug): array {
+    static $memo = array();
+    $key = (string) $slug;
+    if (!isset($memo[$key])) {
+        $state = array('indexable' => false, 'slug' => $key, 'title' => '', 'summary' => '');
+        $result = $key === '' ? null : sc_research_bridge_fetch_article($key);
+        if (is_array($result) && $result[0] === 200 && ($result[1]['listed'] ?? null) === true) {
+            $state = array('indexable' => true, 'slug' => $key, 'title' => $result[1]['title'],
+                           'summary' => sc_research_bridge_text($result[1]['summary'], 300));
+        }
+        $memo[$key] = $state;
+    }
+    return $memo[$key];
+}
+
+function sc_research_bridge_hub_url(): string {
+    return home_url('/research-hub/');
+}
+
+function sc_research_bridge_article_canonical(array $state): string {
+    return $state['indexable'] ? add_query_arg('article', $state['slug'], sc_research_bridge_hub_url())
+                               : sc_research_bridge_hub_url();
+}
+
+/** Extra response headers for an article page (none for any other page). */
+function sc_research_bridge_article_page_headers(): array {
+    $slug = sc_research_bridge_article_request();
+    return $slug === null || sc_research_bridge_article_page_state($slug)['indexable'] ? array() : array('X-Robots-Tag: noindex');
+}
+
+function sc_research_bridge_article_page(): void {
+    if (sc_research_bridge_article_request() === null) {
+        return;
+    }
+    if (!defined('DONOTCACHEPAGE')) {
+        define('DONOTCACHEPAGE', true);
+    }
+    nocache_headers();
+    foreach (sc_research_bridge_article_page_headers() as $line) {
+        header($line);
+    }
+}
+add_action('template_redirect', 'sc_research_bridge_article_page', 0);
+
+/** WordPress core robots meta. */
+function sc_research_bridge_article_wp_robots($robots) {
+    $slug = sc_research_bridge_article_request();
+    if ($slug !== null && !sc_research_bridge_article_page_state($slug)['indexable']) {
+        unset($robots['index']);
+        $robots['noindex'] = true;
+    }
+    return $robots;
+}
+add_filter('wp_robots', 'sc_research_bridge_article_wp_robots', 99);
+
+/** Rank Math robots meta (the site's SEO plugin). */
+function sc_research_bridge_article_rank_math_robots($robots) {
+    $slug = sc_research_bridge_article_request();
+    if ($slug !== null && !sc_research_bridge_article_page_state($slug)['indexable']) {
+        $robots = is_array($robots) ? $robots : array();
+        $robots['index'] = 'noindex';
+    }
+    return $robots;
+}
+add_filter('rank_math/frontend/robots', 'sc_research_bridge_article_rank_math_robots', 99);
+
+function sc_research_bridge_article_canonical_filter($url) {
+    $slug = sc_research_bridge_article_request();
+    return $slug === null ? $url : sc_research_bridge_article_canonical(sc_research_bridge_article_page_state($slug));
+}
+add_filter('get_canonical_url', 'sc_research_bridge_article_canonical_filter', 99);
+add_filter('rank_math/frontend/canonical', 'sc_research_bridge_article_canonical_filter', 99);
+add_filter('rank_math/opengraph/url', 'sc_research_bridge_article_canonical_filter', 99);
+
+function sc_research_bridge_article_title($title) {
+    $slug = sc_research_bridge_article_request();
+    $state = $slug === null ? null : sc_research_bridge_article_page_state($slug);
+    return $state && $state['indexable'] && $state['title'] !== ''
+        ? $state['title'] . ' · Research · Sustainable Catalyst' : $title;
+}
+add_filter('rank_math/frontend/title', 'sc_research_bridge_article_title', 99);
+add_filter('pre_get_document_title', 'sc_research_bridge_article_title', 99);
+
+function sc_research_bridge_article_description($description) {
+    $slug = sc_research_bridge_article_request();
+    $state = $slug === null ? null : sc_research_bridge_article_page_state($slug);
+    return $state && $state['indexable'] && $state['summary'] !== '' ? $state['summary'] : $description;
+}
+add_filter('rank_math/frontend/description', 'sc_research_bridge_article_description', 99);
 
 // ---------------------------------------------------------------------------------------------------
 // SC-FIG-03B: released scientific figures. Research is the release authority and re-verifies every
