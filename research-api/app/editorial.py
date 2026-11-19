@@ -961,6 +961,95 @@ def area_view(session: Session, slug: str) -> dict:
             "subjectRef": area_subject_ref(area), "approvalAction": AREA_ACTION}
 
 
+# ---------------------------------------------------------------------------
+# RH-PUB-01: an original manuscript as a private, citable source object
+
+SOURCE_SCHEMA = "sc-workspace-research-source/1.0"
+SOURCE_MEDIA_TYPES = frozenset({
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/pdf",
+})
+RIGHTS_BASES = frozenset({"author-owned", "licensed", "public-domain", "other"})
+SOURCE_LIMITATION = ("The original file is held privately in Workspace. Research records its hash, provenance and "
+                     "rights declaration, not its bytes.")
+
+
+def _sha256(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not md.SHA256.fullmatch(value):
+        raise ValueError(f"{name} must be a lowercase SHA-256")
+    return value
+
+
+def register_source(session: Session, actor: Actor, *, slug: str, document: Any, key=None) -> dict:
+    """Register the original file a Studio publication was imported from as a private ``source`` object of this article.
+
+    Workspace signs what it verified itself: the owner, the project, the original's bytes (re-hashed from its private
+    store), the exact Studio revision derived from it and the owner's rights declaration. Research keeps that signed
+    record as private provenance; the bytes never leave Workspace. The object is idempotent on the original's hash,
+    private until its own four approvals release it, and citable with the role ``citation``.
+    """
+    from .workspace_ingest import load_public_key, verify_document
+    entry, project, _area, workspace, _art = _entry(session, actor.owner, slug)
+    if actor.role != "owner":
+        raise PermissionError("Only the article's owner can register an original manuscript")
+    body = verify_document(key or load_public_key(), SOURCE_SCHEMA, document)
+    if body.get("ownerScope") != actor.owner:
+        raise PermissionError("This source record was signed for another Workspace owner")
+    project_id = _text(body.get("projectId"), "projectId", 160)
+    if project.external_workspace_ref != workspace_ref(project_id):
+        raise PermissionError("This source record is for a different Workspace project than the article")
+    original, studio, rights = (body.get(k) if isinstance(body.get(k), dict) else {}
+                                for k in ("original", "studioRevision", "rights"))
+    digest = _sha256(original.get("sha256"), "original.sha256")
+    size = original.get("byteCount")
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        raise ValueError("original.byteCount must be a positive integer")
+    if original.get("mediaType") not in SOURCE_MEDIA_TYPES:
+        raise ValueError("Only a Word (.docx) or PDF original can be registered")
+    artifact = _text(original.get("artifactId"), "original.artifactId", 160)
+    document_id = _text(studio.get("documentId"), "studioRevision.documentId", 160)
+    revision = studio.get("revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        raise ValueError("studioRevision.revision must be a positive integer")
+    _sha256(studio.get("markdownSHA256"), "studioRevision.markdownSHA256")
+    if rights.get("basis") not in RIGHTS_BASES:
+        raise ValueError(f"rights.basis must be one of {sorted(RIGHTS_BASES)}")
+    _text(rights.get("holder"), "rights.holder", 300)
+    if len(_text(rights.get("statement"), "rights.statement", 2000).strip()) < 20:
+        raise ValueError("rights.statement must describe the rights in at least 20 characters")
+    title = _text(body.get("title"), "title", 300).strip()
+    record = {
+        "sourceRefs": [{"kind": "workspace-original", "artifactId": artifact, "sha256": digest, "byteCount": size,
+                        "mediaType": original["mediaType"], "filename": str(original.get("filename") or "")[:300]}],
+        "scientificClassification": "unknown",
+        "uncertainty": {"status": "not-applicable", "reason": "An original manuscript file; nothing is computed from it."},
+        "artifactSha256": digest,
+        "verification": {"status": "workspace-bytes-verified", "byteCount": size},
+        "reviewStatus": "unreviewed",
+        "limitations": SOURCE_LIMITATION,
+        "workspace": {"projectId": project_id, "studioRevision": studio},
+        "rights": rights,
+        "workspaceSourceRecord": document,  # the signed record itself, private
+    }
+    cv.validate_provenance("source", "unknown", record)
+    obj = md.register_metadata_object(
+        session, workspace=workspace, owner_scope=actor.owner, authority="workspace",
+        source_id=f"workspace-original:{project_id}:{artifact}", source_version=digest, kind="source",
+        title=title, source_sha256=digest, data_classification="unknown")
+    prov = cv._provenance(session, obj)
+    created = prov is None
+    if prov is None:
+        prov = cv._attach_provenance(session, obj, record)
+    elif (prov.record.get("workspace") or {}).get("studioRevision", {}).get("documentId") != document_id:
+        raise Conflict("This original is already registered from another Studio publication")
+    if created:
+        _event(session, actor, "source-registered", entry=entry,
+               detail={"objectId": obj.id, "sourceSha256": digest, "studioDocumentId": document_id,
+                       "studioRevision": revision, "rightsBasis": rights["basis"]})
+    return {"objectId": obj.id, "kind": obj.kind, "role": "citation", "sourceSha256": digest,
+            "visibility": obj.visibility, "pin": current_pin(session, obj), "subjectRef": cv.subject_ref(obj, prov),
+            "studioRevision": (prov.record.get("workspace") or {}).get("studioRevision"), "created": created}
+
+
 def owner_articles(session: Session, owner: str) -> list[dict]:
     rows = session.execute(
         select(ws.ResearchEntry, ws.ResearchArea, EditorialArticle)
@@ -1150,6 +1239,12 @@ def revision_route(slug: str, revision: int, actor: Actor = Depends(editorial_ac
     return {"revision": revision, "document": rev.document, "documentSha256": rev.document_sha256,
             "references": [verify_reference(session, actor.owner, r, require_reproduction=True, require_public=True,
                                             home_workspace=home) for r in rev.document["references"]]}
+
+
+@router.post("/editorial/articles/{slug}/sources")
+def source_route(slug: str, body: dict = Body(...), actor: Actor = Depends(editorial_actor),
+                 session: Session = Depends(ws.get_session)):
+    return _do(session, register_source, actor, slug=slug, document=body.get("document"))
 
 
 @router.post("/editorial/articles/{slug}/revisions")
